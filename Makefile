@@ -3,9 +3,7 @@
 # Options
 # ------------------------------------------------------------------------------
 
-PLAT ?=LINUX
-TYPE ?= DEBUG
-ASAN ?= 0
+
 
 
 # ------------------------------------------------------------------------------
@@ -30,7 +28,7 @@ ASAN ?= 0
 # ------------------------------------------------------------------------------
 
 
-
+.PHONY: rm_submod
 
 
 rm_submod:
@@ -39,9 +37,8 @@ rm_submod:
 # 删除.gitmodules中的模块信息
 	@-git rm -r --cached ${MOD_NAME}
 # 清理.gitmodules!!!
-
-rm:
 # 删除目录
-	@-rm -rf ${MOD_NAME}
+	@-sed -i "\#${MOD_NAME}#,+3d" .gitmodules
 	@-rm -rf .git/modules/${MOD_NAME}
-	@sed -i "\#${MOD_NAME}#,+3d" .gitmodules
+	@-rm -rf ${MOD_NAME}
+
