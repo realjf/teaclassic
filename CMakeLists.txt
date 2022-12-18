@@ -1,17 +1,33 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 set(PROJECT_NAME teatree)
-project(${PROJECT_NAME} C CXX)
-
-
-unset(OFF)
-unset(ON)
-if(POLICY CMP0054)
-  cmake_policy(SET CMP0054 NEW)
-endif()
 
 set(TEATREE_MAJOR_VERSION 0)
 set(TEATREE_MINOR_VERSION 0)
 set(TEATREE_MICRO_VERSION 1)
 set(TEATREE_VERSION "${TEATREE_MAJOR_VERSION}.${TEATREE_MINOR_VERSION}.${TEATREE_MICRO_VERSION}")
 
-include_directories(deps/SDL2/include)
+
+project(${PROJECT_NAME} LANGUAGES C CXX VERSION ${TEATREE_VERSION})
+
+# if(CMAKE_VERSION VERSION_GREATER 3.12)
+#     set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 11)
+# endif()
+
+
+if(POLICY CMP0054)
+  cmake_policy(SET CMP0054 NEW)
+endif()
+
+# set executable output path
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+# set library output path
+SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+
+
+file(GLOB_RECURSE SOURCES "src/**.c" "src/**.h")
+
+include_directories(. deps/SDL2/include)
+
+add_executable(${PROJECT_NAME} ${SOURCES})
+
+
