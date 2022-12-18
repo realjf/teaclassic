@@ -52,6 +52,5 @@ Mkfile.old
 dkms.conf
 
 .history
-.vscode
 build
 bin

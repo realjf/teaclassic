@@ -11,4 +11,8 @@
 #endif
 
 #define TC_VER_MAJOR 0
-#define
+#define TC_VER_MINOR 0
+#define TC_VER_PATCH 1
+
+VEC_TYPE(event, SDL_Event)
+VEC_IMPL(static inline, event, SDL_Event)

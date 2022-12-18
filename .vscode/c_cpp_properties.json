@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/deps/SDL2/include",
+                "${workspaceFolder}/deps/openaal-soft/include"
+            ],
+            "defines": [ ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-g++-x64"
+        }
+    ],
+    "version": 4
+}
