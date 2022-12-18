@@ -10,5 +10,5 @@
 #include <windows.h>
 #endif
 
-#define TEATREE_VER_MAJOR 0
+#define TC_VER_MAJOR 0
 #define

@@ -11,10 +11,10 @@ ASAN ?= 0
 # Sources
 # ------------------------------------------------------------------------------
 
-PF_DIRS = $(sort $(dir $(wildcard ./src/*/), ./src/))
-PF_SRCS = $(foreach dir,$(PF_DIRS),$(wildcard $(dir)*.c))
-PF_OBJS = $(PF_SRCS:./src/%.c=./obj/%.o)
-PF_DEPS = $(PF_OBJS:%.o=%.d)
+TC_DIRS = $(sort $(dir $(wildcard ./src/*/), ./src/))
+TC_SRCS = $(foreach dir,$(TC_DIRS),$(wildcard $(dir)*.c))
+TC_OBJS = $(TC_SRCS:./src/%.c=./obj/%.o)
+TC_DEPS = $(TC_OBJS:%.o=%.d)
 
 # ------------------------------------------------------------------------------
 # Library Dependencies
@@ -40,7 +40,7 @@ LINUX_PYTHON_CONFIG = --host=x86_64-pc-linux-gnu
 LINUX_OPENAL_OPTS = "-DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF"
 
 LINUX_CC = gcc
-LINUX_BIN = ./bin/pf
+LINUX_BIN = ./bin/tc
 LINUX_LDFLAGS = \
 	-l:$(SDL2_LIB) \
 	-l:$(GLEW_LIB) \
@@ -71,7 +71,7 @@ WINDOWS_GLEW_OPTS = "SYSTEM=linux-mingw64"
 WINDOWS_OPENAL_OPTS = -DCMAKE_TOOLCHAIN_FILE=XCompile.txt -DHOST=x86_64-w64-mingw32 -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF
 
 WINDOWS_CC = x86_64-w64-mingw32-gcc
-WINDOWS_BIN = ./lib/pf.exe
+WINDOWS_BIN = ./lib/tc.exe
 WINDOWS_LDFLAGS = \
 	-lmingw32 \
 	-lSDL2 \
@@ -191,19 +191,19 @@ deps: $(DEPS)
 	@printf "%-8s %s\n" "[CC]" $@
 	@$(CC) -MT $@ -MMD -MP -MF ./obj/$*.d $(CFLAGS) $(DEFS) -c $< -o $@
 
-$(BIN): $(PF_OBJS)
+$(BIN): $(TC_OBJS)
 	@mkdir -p ./bin
 	@printf "%-8s %s\n" "[LD]" $@
 	@$(CC) $^ -o $(BIN) $(LDFLAGS)
 
--include $(PF_DEPS)
+-include $(TC_DEPS)
 
 
 
 
-.PHONY: rm_submod pf clean run run_editor clean_deps launchers build
+.PHONY: rm_submod tc clean run run_editor clean_deps launchers build
 
-pf: $(BIN)
+tc: $(BIN)
 
 clean_deps:
 	rm -rf deps/GLEW/lib
@@ -213,7 +213,7 @@ clean_deps:
 	rm -rf ./lib/*
 
 clean:
-	rm -rf $(PF_OBJS) $(PF_DEPS) $(BIN)
+	rm -rf $(TC_OBJS) $(TC_DEPS) $(BIN)
 
 run:
 	@$(BIN) ./ ./scripts/rts/main.py
@@ -223,8 +223,8 @@ run_editor:
 
 launchers:
 ifeq ($(PLAT),WINDOWS)
-	make -C launcher BIN_PATH='.\\\\lib\\\\pf.exe' SCRIPT_PATH="./scripts/rts/main.py" BIN="../demo.exe" launcher
-	make -C launcher BIN_PATH='.\\\\lib\\\\pf.exe' SCRIPT_PATH="./scripts/editor/main.py" BIN="../editor.exe" launcher
+	make -C launcher BIN_PATH='.\\\\lib\\\\tc.exe' SCRIPT_PATH="./scripts/rts/main.py" BIN="../demo.exe" launcher
+	make -C launcher BIN_PATH='.\\\\lib\\\\tc.exe' SCRIPT_PATH="./scripts/editor/main.py" BIN="../editor.exe" launcher
 else
 	make -C launcher BIN_PATH=$(BIN) SCRIPT_PATH="./scripts/rts/main.py" BIN="../demo" launcher
 	make -C launcher BIN_PATH=$(BIN) SCRIPT_PATH="./scripts/editor/main.py" BIN="../editor" launcher

@@ -1,4 +1,4 @@
-# teatree
+# teaclassic
 game engine
 
 
@@ -13,5 +13,5 @@ game engine
 ### Building
 **`Linux`**
 ```sh
-git clone --recursive https://github.com/realjf/teatree.git
+git clone --recursive https://github.com/realjf/teaclassic.git
 ```

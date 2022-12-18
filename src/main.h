@@ -15,16 +15,16 @@ extern SDL_threadID g_render_thread_id; /* readonly */
 
 #define ASSERT_IN_MAIN_THREAD() assert(SDL_ThreadID() == g_main_thread_id)
 
-enum pf_window_flags {
+enum tc_window_flags {
 
-    PF_WF_FULLSCREEN = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_INPUT_GRABBED,
-    PF_WF_BORDERLESS_WIN = SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED,
-    PF_WF_WINDOW = SDL_WINDOW_INPUT_GRABBED,
+    TC_WF_FULLSCREEN = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_INPUT_GRABBED,
+    TC_WF_BORDERLESS_WIN = SDL_WINDOW_BORDERLESS | SDL_WINDOW_INPUT_GRABBED,
+    TC_WF_WINDOW = SDL_WINDOW_INPUT_GRABBED,
 
 }
 
 int Engine_SetRes(int w, int h);
-void Engine_SetDispMode(enum pf_window_flags wf);
+void Engine_SetDispMode(enum tc_window_flags wf);
 void Engine_WinDrawableSize(int *out_w, int *out_h);
 void Engine_LoadingScreen(void);
 void Engine_EnableRendering(bool on);
