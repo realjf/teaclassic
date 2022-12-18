@@ -3,7 +3,8 @@ game engine
 
 
 ### Dependencies
-- SDL2 v2.26.1
+- SDL2 release-2.26.1
+- openal-soft 1.22.2
 
 
 

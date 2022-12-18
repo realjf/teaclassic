@@ -42,3 +42,5 @@ rm_submod:
 	@-rm -rf .git/modules/${MOD_NAME}
 	@-rm -rf ${MOD_NAME}
 
+push:
+	@git add -A && git commit -m "update" && git push
