@@ -230,6 +230,16 @@ else
 	make -C launcher BIN_PATH=$(BIN) SCRIPT_PATH="./scripts/editor/main.py" BIN="../editor" launcher
 endif
 
+
+
+
+
+
+# ------------------------------------------------------------------------------
+# External Commands
+# ------------------------------------------------------------------------------
+
+
 rm_submod:
 # 清空模块目录
 	@-git submodule deinit -f ${MOD_NAME}
@@ -246,4 +256,10 @@ push:
 
 build:
 	@rm -rf build
-	@mkdir build && cd build && cmake ..
+	@mkdir build
+ifeq (${PLAT},LINUX)
+	@cd build && cmake .. -G "Unix Makefiles"
+endif
+ifeq (${PLAT},WINDOWS)
+	@cd build && cmake .. -G "Visual Studio 16 2019" -A x64
+endif
