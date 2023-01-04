@@ -3,7 +3,7 @@
         {
             "name": "Linux",
             "includePath": [
-                "${default}",
+                "${workspaceFolder}/src/**",
                 "${workspaceFolder}/deps/SDL2/include",
                 "${workspaceFolder}/deps/openaal-soft/include"
             ],

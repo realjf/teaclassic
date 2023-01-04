@@ -3,6 +3,7 @@
         "*.html": "html",
         "assert.h": "c",
         "stdbool.h": "c",
-        "sdl.h": "c"
+        "sdl.h": "c",
+        "event.h": "c"
     }
 }

@@ -201,7 +201,7 @@ $(BIN): $(TC_OBJS)
 
 
 
-.PHONY: rm_submod tc clean run run_editor clean_deps launchers build
+.PHONY: rm_submod tc clean run run_editor clean_deps launchers build pull
 
 tc: $(BIN)
 
@@ -263,3 +263,9 @@ endif
 ifeq (${PLAT},WINDOWS)
 	@cd build && cmake .. -G "Visual Studio 16 2019" -A x64
 endif
+
+pull:
+	@-git pull
+# @-git pull --recurse-submodules
+	@-git submodule sync --recursive
+	@-git submodule update --init --recursive
