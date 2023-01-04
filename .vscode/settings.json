@@ -12,6 +12,9 @@
         "tile.h": "c",
         "perf.h": "c",
         "task.h": "c",
-        "gl_texture.h": "c"
+        "gl_texture.h": "c",
+        "python.h": "c",
+        "sdl_vec_rwops.h": "c",
+        "py_camera.h": "c"
     }
 }

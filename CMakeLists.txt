@@ -29,12 +29,13 @@ include(cmake/common.cmake)
 include(cmake/common_macros.cmake)
 include(cmake/sdl.cmake)
 include(cmake/glew.cmake)
-
+include(cmake/python.cmake)
 
 
 include_directories(.)
 include_directories(deps/SDL2/include)
 include_directories(deps/openal-soft/include)
+include_directories(deps/Python/Include)
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-volatile")

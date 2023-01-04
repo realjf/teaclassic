@@ -1,0 +1,1539 @@
+
+import tc
+import traceback
+import sys
+import imp
+import exceptions
+import weakref
+import operator
+
+
+def test_pickle_int():
+
+    i1 = -259
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1 == i2
+
+    i1 = 0x556789
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1 == i2
+
+    print "Int picking OK!"
+
+
+def test_pickle_long():
+
+    l1 = long(1 << 32)
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    print "Long picking OK!"
+
+
+def test_pickle_string():
+
+    s1 = "Hello World!"
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    s1 = ""
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    s1 = "\"This is a weird string\"\n"
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    print "String pickling OK!"
+
+
+def test_pickle_unicode():
+
+    u1 = u'abcdefg'
+    s = tc.pickle_object(u1)
+    u2 = tc.unpickle_object(s)
+    assert u1 == u2
+
+    u1 = u'\u043F\u0440\u0438\u0432\u0435\u0442'
+    s = tc.pickle_object(u1)
+    u2 = tc.unpickle_object(s)
+    assert u1 == u2
+
+    u1 = u'\n\n'
+    s = tc.pickle_object(u1)
+    u2 = tc.unpickle_object(s)
+    assert u1 == u2
+
+    print "Unicode pickling OK!"
+
+
+def test_pickle_tuple():
+
+    t1 = ()
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+
+    t1 = (0, 1, 2)
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+
+    t1 = (0, 1, ("Hello", "World", "!", (2, 3, ())))
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+
+    # Self referencing
+    l = []
+    t1 = (1, 2, l)
+    l.append(t1)
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    # Can't compare direcly due to recursive def
+    assert t1.__repr__() == t2.__repr__()
+    assert id(t2) == id(t2[2][0])
+
+    a = 1
+    t1 = (a, a, a)
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+    assert id(t2[0]) == id(t2[1])
+    assert id(t2[1]) == id(t2[2])
+
+    print "Tuple pickling OK!"
+
+
+def test_pickle_list():
+
+    l1 = []
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    l1 = [1, 2, 3, "Hello", "World", (1, 2), [3], [[[9]]], "!", (1, [120])]
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    # self referencing
+    l1 = []
+    l1.append(l1)
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    # Can't compare direcly due to recursive def
+    assert l1.__repr__() == l2.__repr__()
+    assert id(l2) == id(l2[0])
+
+    print "List pickling OK!"
+
+
+def test_pickle_dict():
+
+    d1 = {}
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert d1 == d2
+
+    a = "same",
+    d1 = {
+        "Hello": "World",
+        "Apple": "Orange",
+        a: a,
+        99: 12356,
+        100: (1, 2, 3),
+        101: {0: {}, 1: {}}
+    }
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert d1 == d2
+
+    # self referencing
+    d1 = {}
+    d1["key"] = d1
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert d1.__repr__() == d2.__repr__()
+    assert id(d2) == id(d2["key"])
+
+    print "Dict pickling OK!"
+
+
+def test_pickle_set():
+
+    s1 = set({1, 2, 3, 4, 5, "Hello World"})
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    print "Set pickling OK!"
+
+
+def test_pickle_frozenset():
+
+    f1 = frozenset({1, 2, 3, 4, 5, "Hello World"})
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    print "Frozenset pickling OK!"
+
+
+def test_pickle_cfunction():
+
+    f1 = locals
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    f1 = globals
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    f1 = tc.pickle_object
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    print "Built-in function pickling OK!"
+
+
+def test_pickle_code():
+
+    def testfunc(a, b):
+        return a + b
+
+    c1 = testfunc.func_code
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1 == c2
+
+    print "Code pickling OK!"
+
+
+def test_pickle_function():
+
+    def testfunc(a, b):
+        return a + b
+
+    f1 = testfunc
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1(1, 3) == f2(1, 3)
+
+    # test closure
+    def outer():
+        a = 5
+
+        def inner(num):
+            return a + num
+        return inner
+
+    f1 = outer()
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1(15) == f2(15)
+
+    # test function decorator
+    def test_decorator(func):
+        def triple(num):
+            return 3*func(num)
+        return triple
+
+    @test_decorator
+    def double(num):
+        return 2*num
+
+    f1 = double
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1(9) == f2(9)
+
+    # test pickling default args
+    def testfunc2(num=5, word='test'):
+        return num*word
+
+    f1 = testfunc2
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1() == f2()
+    assert f1(num=3) == f2(num=3)
+
+    print "Function pickling OK!"
+
+
+def test_pickle_class():
+
+    class TestClass:
+        clsattr = 'Hello'
+
+        def __init__(self):
+            self.a = 1
+            self.b = 2
+            self.c = ("Hello World", 1, 2)
+
+    c1 = TestClass
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1.clsattr == c2.clsattr
+
+    print "Class pickling OK!"
+
+
+def test_pickle_instance():
+
+    class TestClass:
+        clsattr = 'Hello'
+
+        def __init__(self, a, b):
+            self.a = a
+            self.b = b
+
+    i1 = TestClass(25, 'Test123')
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert type(i1) == type(i2)
+    assert i1.__class__.__name__ == i2.__class__.__name__
+    assert i1.clsattr == i2.clsattr
+    assert i1.a == i2.a
+    assert i1.b == i2.b
+
+    print "Instance pickling OK!"
+
+
+def test_pickle_type():
+
+    # Built-in types
+    t1 = object
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+
+    t1 = dict
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+
+    # User-defined types (i.e. new-style classes)
+    class TestClass(object):
+        clsattr = 'Hello'
+
+        def __init__(self):
+            self.a = 1
+            self.b = 2
+            self.c = 3
+
+    t1 = TestClass
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+
+    assert t1.clsattr == t2.clsattr
+    i1, i2 = t1(), t2()
+    assert i1.a == i2.a
+    assert i1.b == i2.b
+    assert i1.c == i2.c
+
+    # Sublcasses of builtins
+    class UserDict(dict):
+        def __init__(self, *args):
+            super(UserDict, self).__init__(*args)
+            self.customattr = 123
+
+    t1 = UserDict
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+
+    i1 = t1({'a': 1})
+    i2 = t2({'a': 1})
+    assert i1.customattr == i2.customattr
+    assert i1['a'] == i2['a']
+
+    # Type with '__slots__'
+    class SlotsType(object):
+        __slots__ = ['a', 'b']
+
+        def __init__(self):
+            self.a = 1
+            self.b = 2
+
+    t1 = SlotsType
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1.__slots__ == t2.__slots__
+
+    i1, i2 = t1(), t2()
+    assert i1.a == i2.a
+    assert i1.b == i2.b
+    try:
+        setattr(i2, 'c', 3)
+    except AttributeError:
+        pass
+    else:
+        raise Exception(
+            "Able to set non-slot attribute: __slots__ not properly saved")
+
+    # Make sure excess attributes are deleted
+    e1 = Exception('test123')
+    del e1.message  # By default, new Exception instances have this attribute
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert not hasattr(e2, 'message')
+
+    print "Type pickling OK!"
+
+
+def test_pickle_bool():
+
+    b1 = True
+    s = tc.pickle_object(b1)
+    b2 = tc.unpickle_object(s)
+    assert b1 == b2
+
+    b1 = False
+    s = tc.pickle_object(b1)
+    b2 = tc.unpickle_object(s)
+    assert b1 == b2
+
+    print "Bool pickling OK!"
+
+
+def test_pickle_bytearray():
+
+    b1 = bytearray('\x00\x01\x02\x03')
+    s = tc.pickle_object(b1)
+    b2 = tc.unpickle_object(s)
+    assert b1 == b2
+
+    print "Bytearray pickling OK!"
+
+
+def test_pickle_baseobject():
+
+    o1 = object()
+    s = tc.pickle_object(o1)
+    o2 = tc.unpickle_object(s)
+    assert type(o1) == type(o2)
+
+    print "Base object pickling OK!"
+
+
+def test_pickle_notimplemented():
+
+    n1 = NotImplemented
+    s = tc.pickle_object(n1)
+    n2 = tc.unpickle_object(s)
+
+    print "NotImplemented pickling OK!"
+
+
+def test_pickle_ellipsis():
+
+    e1 = Ellipsis
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+
+    print "Ellipsis pickling OK!"
+
+
+def test_pickle_syslonginfo():
+
+    l1 = sys.long_info
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    print "sys.long_info pickling OK!"
+
+
+def test_pickle_sysfloatinfo():
+
+    l1 = sys.float_info
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    print "sys.float_info pickling OK!"
+
+
+def test_pickle_nullimporter():
+
+    n1 = imp.NullImporter("__test__")
+    s = tc.pickle_object(n1)
+    n2 = tc.unpickle_object(s)
+    assert type(n1) == type(n2)
+    assert n2.find_module() == None
+
+    print "imp.NullImporter pickling OK!"
+
+
+def test_pickle_sys_singleton_namedtuples():
+
+    o1 = sys.version_info
+    s = tc.pickle_object(o1)
+    o2 = tc.unpickle_object(s)
+    assert o1 == o2
+
+    o1 = sys.flags
+    s = tc.pickle_object(o1)
+    o2 = tc.unpickle_object(s)
+    assert o1 == o2
+
+    print "sys singleton named tuple pickling OK!"
+
+
+def test_pickle_cell():
+
+    def outer():
+        a = 5
+
+        def inner(num):
+            return a + num
+        return inner
+
+    c1 = outer().__closure__
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1 == c2
+
+    print "Cell pickling OK!"
+
+
+def test_pickle_member_descriptor():
+
+    m1 = exceptions.SyntaxError.text
+    assert repr(m1)[1:].startswith('member')
+    s = tc.pickle_object(m1)
+    m2 = tc.unpickle_object(s)
+    assert type(m1) == type(m2)
+    assert m1.__name__ == m2.__name__
+
+    class Subclass(exceptions.SyntaxError):
+        pass
+
+    m1 = Subclass.text
+    assert repr(m1)[1:].startswith('member')
+    s = tc.pickle_object(m1)
+    m2 = tc.unpickle_object(s)
+    assert type(m1) == type(m2)
+    assert m1.__name__ == m2.__name__
+
+    print "Member descriptor pickling OK!"
+
+
+def test_pickle_getset_descriptor():
+
+    class TestClass(object):
+        clsattr = 'Hello'
+
+        def __init__(self):
+            self.a = 1
+            self.b = 2
+            self.c = 3
+
+    d1 = TestClass.__dict__['__dict__']
+    assert repr(d1)[1:].startswith('attribute')
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert type(d1) == type(d2)
+    assert d1.__name__ == d2.__name__
+    assert d1.__objclass__.__name__ == d2.__objclass__.__name__
+
+    print "GetSet descriptor pickling OK!"
+
+
+def test_pickle_file():
+
+    for f in [sys.stdin, sys.stdout, sys.stderr]:
+        f1 = f
+        s = tc.pickle_object(f1)
+        f2 = tc.unpickle_object(s)
+        assert f1 == f2
+
+    print "File pickling OK!"
+
+
+def test_pickle_super():
+
+    class Root(object):
+        def foo(self):
+            return "Root.foo"
+
+    class Left(Root):
+        def foo(self):
+            return "Left.foo-" + super(Left, self).foo()
+
+    class Right(Root):
+        def foo(self):
+            return "Right.foo-" + super(Right, self).foo()
+
+    class Final(Left, Right):
+        def foo(self):
+            return "Final.foo-" + super(Final, self).foo()
+
+    f = Final()
+
+    s1 = super(Final, f)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1.foo() == s2.foo()
+
+    s1 = super(Left, f)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1.foo() == s2.foo()
+
+    s1 = super(Right, f)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1.foo() == s2.foo()
+
+    print "Super pickling OK!"
+
+
+def test_pickle_classmethod():
+
+    class ClassMethodTestClass(object):
+        @classmethod
+        def test_cls_method(cls):
+            return 'this is a %s class method' % str(cls)
+
+        def test_instance(self):
+            return 'this is a %s instance method' % str(self)
+
+    c1 = classmethod(ClassMethodTestClass.test_cls_method)
+    assert repr(c1)[1:].startswith("classmethod")
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1.__func__.__name__ == c2.__func__.__name__
+
+    cls1 = ClassMethodTestClass
+    s = tc.pickle_object(cls1)
+    cls2 = tc.unpickle_object(s)
+    assert cls1.test_cls_method() == cls2.test_cls_method()
+
+    print "Classmethod pickling OK!"
+
+
+def test_pickle_wrapper_descriptor():
+
+    d1 = object.__delattr__
+    assert repr(d1)[1:].startswith("slot wrapper")
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert d1 == d2
+
+    print "Wrapper descriptor pickling OK!"
+
+
+def test_pickle_method_wrapper():
+
+    class TestClass(object):
+        pass
+    inst = TestClass()
+
+    d1 = inst.__setattr__
+    assert repr(d1)[1:].startswith("method-wrapper")
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+
+    assert d1.__name__ == d2.__name__
+    d2('test', 123)
+    assert d2.__self__.test == 123
+
+    print "Method-wrapper (slot method) pickling OK!"
+
+
+def test_pickle_range():
+
+    r1 = xrange(1, 10, 2)
+    s = tc.pickle_object(r1)
+    r2 = tc.unpickle_object(s)
+    assert repr(r1) == repr(r2)
+    assert next(r1.__iter__()) == next(r2.__iter__())
+
+    print "Range pickling OK!"
+
+
+def test_pickle_slice():
+
+    s1 = slice(2, 6, 2)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert repr(s1) == repr(s2)
+
+    l = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    assert l[s2] == [2, 4]
+
+    s1 = slice('Hello World', slice(1, 5), 123)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert repr(s1) == repr(s2)
+
+    print "Slice pickling OK!"
+
+
+def test_pickle_staticmethod():
+
+    class TestClass(object):
+        def __new__(cls):
+            ret = object.__new__(cls)
+            ret.myattr = 'Hello World'
+            return ret
+
+        @staticmethod
+        def test_static_method(a):
+            return "staticmethod with arg %s" % repr(a)
+
+    s1 = staticmethod(TestClass.test_static_method)
+    assert repr(s1)[1:].startswith('staticmethod')
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert repr(s2)[1:].startswith('staticmethod')
+
+    c1 = TestClass
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1.test_static_method(123) == c2.test_static_method(123)
+
+    inst = c2()
+    assert inst.myattr == 'Hello World'
+
+    print "staticmethod pickling OK!"
+
+
+def test_pickle_buffer():
+
+    text = 'Hello World'
+
+    b1 = buffer(text, 6, 5)
+    s = tc.pickle_object(b1)
+    b2 = tc.unpickle_object(s)
+    assert str(b2) == 'World'
+
+    print "buffer pickling OK!"
+
+
+def test_pickle_memoryview():
+
+    bytes = bytearray('\x00\x01\x02\x03\x04\x05\x06\x07')
+
+    m1 = memoryview(bytes)
+    s = tc.pickle_object(m1)
+    m2 = tc.unpickle_object(s)
+
+    assert len(m1) == len(m2)
+    for i in range(len(m1)):
+        assert m1[i] == m2[i]
+
+    print "memoryview pickling OK!"
+
+
+def test_pickle_property():
+
+    class PropertyClass(object):
+
+        def __init__(self):
+            self.__dict__['prop'] = 'default'
+
+        @property
+        def prop(self):
+            return 'GET.' + self.__dict__['prop']
+
+        @prop.setter
+        def prop(self, val):
+            self.__dict__['prop'] = 'SET.' + val
+
+        @prop.deleter
+        def prop(self):
+            self.__dict__['prop'] = 'DEL.' + self.__dict__['prop']
+
+    p1 = PropertyClass.prop
+    assert repr(p1)[1:].startswith('property')
+    s = tc.pickle_object(p1)
+    p2 = tc.unpickle_object(s)
+
+    obj = PropertyClass()
+    val = p2.fget(obj)
+    assert val == 'GET.default'
+    p2.fset(obj, 'permafrost engine')
+    val = p2.fget(obj)
+    assert val == 'GET.SET.permafrost engine'
+
+    print "property pickling OK!"
+
+
+def test_pickle_enumerate():
+
+    e1 = enumerate([0, 1, 9], 0)
+    assert e1.next() == (0, 0)
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert e2.next() == (1, 1)
+    assert e2.next() == (2, 9)
+
+    print "enumerate pickling OK!"
+
+
+def test_pickle_float():
+
+    f1 = 15934.234349
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    print "Float pickling OK!"
+
+
+def test_pickle_complex():
+
+    c1 = complex(1.23223, 0.09833)
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1 == c2
+
+    print "Complex pickling OK!"
+
+
+def test_pickle_dictproxy():
+
+    class TestClass(object):
+        """ Test docstring """
+        pass
+
+    d1 = TestClass.__dict__
+    assert repr(d1).startswith("dict_proxy")
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert type(d1) == type(d2)
+    assert d1['__doc__'] == d2['__doc__']
+
+    print "dictproxy pickling OK!"
+
+
+def test_pickle_reversed():
+
+    r1 = reversed((1, 2, 3))
+    assert r1.next() == 3
+    assert repr(r1)[1:].startswith('reversed')
+    s = tc.pickle_object(r1)
+    r2 = tc.unpickle_object(s)
+    assert r2.next() == 2
+    assert r2.next() == 1
+    try:
+        r2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("Unexpected item from reversed object")
+
+    print "reversed pickling OK!"
+
+
+def test_pickle_generator():
+
+    def whole_nums_gen():
+        num = 0
+        while True:
+            yield num
+            num += 1
+
+    g1 = whole_nums_gen()
+    assert repr(g1)[1:].startswith('generator')
+    assert g1.next() == 0
+    s = tc.pickle_object(g1)
+    g2 = tc.unpickle_object(s)
+    assert g2.next() == 1
+    assert g2.next() == 2
+
+    def mult_inputs():
+        # the iterators for the 2 lists will be on the
+        # generator frame's valuestack
+        for i in [1, 2]:
+            for j in [9, 4]:
+                x = yield
+                yield x * (i + j)
+
+    g1 = mult_inputs()
+    g1.send(None)
+    assert g1.send(4) == 4*(1+9)
+    g1.next()
+    assert g1.send(2) == 2*(1+4)
+
+    s = tc.pickle_object(g1)
+    g2 = tc.unpickle_object(s)
+
+    g2.next()
+    assert g2.send(8) == 8*(2+9)
+    g2.next()
+    assert g2.send(1) == 1*(2+4)
+    try:
+        g2.send(0)
+    except StopIteration:
+        pass
+    else:
+        raise Exception("Unpickled generator yielded unexpected value")
+
+    s = tc.pickle_object(g2)
+    g2 = tc.unpickle_object(s)
+    try:
+        g2.send(0)
+    except StopIteration:
+        pass
+    else:
+        raise Exception("Unpickled generator yielded unexpected value")
+
+    print "Generator pickling OK!"
+
+
+def test_pickle_frame():
+
+    # get the current stack frame (the one we are in)
+    # storing a reference to the frame in the frame's own locals creates a cyclic reference
+    f1 = sys._getframe()
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1.f_code.co_code == f2.f_code.co_code
+
+    def func():
+        loc1 = 2 * 2
+        loc2 = 'Hello' + ' ' + 'World'
+        s = tc.pickle_object(sys._getframe())
+        loc3 = 'Should not be in frame snapshot'
+        loc4 = 'Should not be in frame snapshot'
+        return s
+
+    s = func()
+    f2 = tc.unpickle_object(s)
+    assert f2.f_code.co_code == func.func_code.co_code
+    assert len(f2.f_locals) == 2
+    assert f2.f_locals['loc1'] == 4
+    assert f2.f_locals['loc2'] == 'Hello World'
+
+    print "Frame pickling OK!"
+
+
+def test_pickle_traceback():
+
+    try:
+        1/0
+    except:
+        t1 = sys.exc_info()[2]
+
+    assert repr(t1)[1:].startswith('traceback')
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+
+    assert t2.tb_frame.f_code.co_code == t1.tb_frame.f_code.co_code
+    assert t2.tb_lasti == t1.tb_lasti
+    assert t2.tb_lineno == t1.tb_lineno
+
+    print "Traceback pickling OK!"
+
+
+def test_pickle_weakref():
+
+    class TestWeakrefClass(object):
+        def __init__(self, a):
+            self.a = a
+
+    a = TestWeakrefClass(456123)
+
+    w1 = weakref.ref(a)
+    s = tc.pickle_object(w1)
+    w2 = tc.unpickle_object(s)
+
+    # w2 should be 'None' when dereferenced. This makes sense
+    # since when the root of the picked heirarchy is a weak
+    # reference, it alone will not retain the objects it is
+    # referencing. They will be pickled and unpickled, but
+    # will have their reference counting reach 0 during
+    # unpickling
+    assert w2() == None
+
+    # But if something else retains the referent, the weakref
+    # relationship should be preserved
+    l1 = [a, w1]
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+
+    assert type(l2[1]) == type(w1)
+    assert l2[0] == l2[1]()
+
+    print "Weakref pickling OK!"
+
+
+def test_pickle_weak_proxy():
+
+    def func():
+        return 'Hello World'
+
+    w1 = weakref.proxy(func)
+    assert 'weakcallableproxy' in repr(type(w1))
+    s = tc.pickle_object(w1)
+    w2 = tc.unpickle_object(s)
+    try:
+        print w2()
+    except ReferenceError:
+        pass
+    else:
+        raise Exception("Unexpected dereferencing possible!")
+
+    class Wrapper(object):
+        pass
+
+    obj = Wrapper()
+    wo = weakref.proxy(obj)
+    assert 'weakproxy' in repr(type(wo))
+
+    l1 = [func, w1, obj, wo]
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+
+    assert l2[0]() == l2[1]()
+    assert l2[2].__repr__.__self__ == l2[3].__repr__.__self__
+
+    print "Weak Proxy pickling OK!"
+
+
+def test_pickle_dictviews():
+
+    d = {
+        'a': 1,
+        'b': 2,
+        'c': 3,
+    }
+
+    d1 = d.viewkeys()
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert len(d1) == len(d2)
+    for k in d2:
+        assert k in d1
+
+    d1 = d.viewvalues()
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert len(d1) == len(d2)
+    for k in d2:
+        assert k in d1
+
+    d1 = d.viewitems()
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert len(d1) == len(d2)
+    for k in d2:
+        assert k in d1
+
+    print "dict view pickling OK!"
+
+
+def test_pickle_iterators():
+
+    # listiterator
+    l1 = iter([1, 2, 3])
+    assert l1.next() == 1
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l2.next() == 2
+    assert l2.next() == 3
+    try:
+        l2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("Unexpected item returned by iterator")
+
+    l1 = iter([])
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    try:
+        l2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("Unexpected item returned by iterator")
+
+    # callable-iterator
+    class Counter(object):
+        def __init__(self):
+            self.idx = 0
+
+        def __call__(self):
+            ret = self.idx
+            self.idx += 1
+            return ret
+
+    i1 = iter(Counter(), 5)
+    assert i1.next() == 0
+    assert i1.next() == 1
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == 2
+    assert i2.next() == 3
+    assert i2.next() == 4
+    try:
+        i2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("callable-iterator yielded unexpected value")
+
+    # iterator
+    m = memoryview('Hello')
+    i1 = iter(m)
+    assert i1.next() == 'H'
+    assert i1.next() == 'e'
+    assert i1.next() == 'l'
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == 'l'
+    assert i2.next() == 'o'
+    try:
+        i2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("iterator yielded unexpected value")
+
+    # bytearray_iterator
+    b = bytearray('\x01\x02')
+    i1 = iter(b)
+    assert i1.next() == 1
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == 2
+
+    # tupleiterator
+    t = (1, 2, 3)
+    i1 = iter(t)
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == 1
+    assert i2.next() == 2
+    assert i2.next() == 3
+
+    # listreverseiterator
+    i1 = iter(reversed([1, 2, 3]))
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == 3
+    assert i2.next() == 2
+    assert i2.next() == 1
+
+    d = {'a': 1, 'b': 2, 'c': 3}
+
+    # dictionary-keyiterator
+    i1 = iter(d.viewkeys())
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+
+    # dictionary-valueiterator
+    i1 = iter(d.viewvalues())
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+
+    # dictionary-itemiterator
+    i1 = iter(d.viewitems())
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+
+    # setiterator
+    i1 = iter(set((1, 2, 3)))
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+    assert i1.next() == i2.next()
+
+    # fieldnameiterator
+    i1 = "{arr[0].} {arr[1].}"._formatter_field_name_split()[1]
+    assert i1.next() == (False, 0L)
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == (True, '} {arr')
+    assert i2.next() == (False, 1L)
+    assert i2.next() == (True, '}')
+
+    # formatteriterator
+    i1 = "{arr[0].} {arr[1].}"._formatter_parser()
+    assert i1.next() == ('', 'arr[0].', '', None)
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i2.next() == (' ', 'arr[1].', '', None)
+    try:
+        i2.next()
+    except StopIteration:
+        pass
+    else:
+        raise Exception("formatteriterator yeilded unexpected item")
+
+    print "iterator pickling OK!"
+
+
+def test_pickle_exceptions():
+
+    e1 = Exception('test123')
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert type(e1) == type(e2)
+    assert e1.message == e2.message
+
+    e1 = StopIteration(123)
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert type(e1) == type(e2)
+    assert e1.message == e2.message
+
+    e1 = BytesWarning(123)
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert type(e1) == type(e2)
+    assert e1.message == e2.message
+
+    e1 = KeyboardInterrupt(123)
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert type(e1) == type(e2)
+    assert e1.message == e2.message
+
+    print "Exception pickling OK!"
+
+
+def test_pickle_builtin_method():
+
+    fs = frozenset([1, 2, 3, 4, 5])
+    m1 = fs.__contains__
+    s = tc.pickle_object(m1)
+    m2 = tc.unpickle_object(s)
+    assert 'built-in method __contains__' in repr(m2)
+    assert m1(1) == m2(1)
+    assert m1(9) == m2(9)
+
+    print "Built-in method pickling OK!"
+
+
+def test_pickle_operator_builtins():
+
+    f1 = operator.itemgetter(1)
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1([0, 1, 2]) == f2([0, 1, 2])
+
+    f1 = operator.methodcaller('lower')
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1('TEST') == f2('TEST')
+
+    f1 = operator.attrgetter('__class__')
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1(1) == f2(1)
+
+    print "operator module builtins pickling OK!"
+
+
+def test_pickle_builtin_subclasses():
+
+    class UserList(list):
+        def __init__(self, *args):
+            super(UserList, self).__init__(*args)
+            self.customattr = 456
+
+    l1 = UserList([1, 2, 'abc'])
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+    assert l1.customattr == l2.customattr
+
+    # self-referencing
+    l1 = UserList()
+    l1.append(l1)
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1.__repr__() == l2.__repr__()
+    assert l1 == l1[0]
+    assert l2 == l2[0]
+
+    class UserType(type):
+        pass
+
+    t1 = UserType('testtype', (UserList,), dict(testattr=1))
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+
+    assert t1([1, 2, 'abc']) == t2([1, 2, 'abc'])
+    assert repr(t1) == repr(t2)
+    assert t1().testattr == t2().testattr
+
+    class UserString(str):
+        pass
+
+    s1 = UserString('Hello World')
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    class UserByteArray(bytearray):
+        pass
+
+    b1 = UserByteArray('abc')
+    s = tc.pickle_object(b1)
+    b2 = tc.unpickle_object(s)
+    assert b1 == b2
+    assert repr(type(b1)) == repr(type(b2))
+
+    class UserSuper(super):
+        pass
+
+    s1 = UserSuper(UserSuper)
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert repr(s1.__class__) == repr(s2.__class__)
+    assert s2.__self__ == s2.__self__
+
+    class UserDict(dict):
+        def __init__(self, *args, **kwargs):
+            super(UserDict, self).__init__(*args, **kwargs)
+            self.customattr = 123
+
+    d1 = UserDict(a=1, b=2, c=3)
+    s = tc.pickle_object(d1)
+    d2 = tc.unpickle_object(s)
+    assert d1['a'] == d2['a']
+    assert d1['b'] == d2['b']
+    assert d1['c'] == d2['c']
+
+    class UserSet(set):
+        pass
+
+    s1 = UserSet((1, 2, 'Hello World'))
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    class UserFrozenSet(frozenset):
+        pass
+
+    s1 = UserFrozenSet((1, 2, 'Hello World'))
+    s = tc.pickle_object(s1)
+    s2 = tc.unpickle_object(s)
+    assert s1 == s2
+
+    class UserUnicode(unicode):
+        pass
+
+    u1 = UserUnicode('Permafrost Engine is the greatest. Yup.')
+    s = tc.pickle_object(u1)
+    u2 = tc.unpickle_object(s)
+    assert u1 == u2
+
+    class UserStaticMethod(staticmethod):
+        num_accesses = 0
+
+        def __get__(self, *args):
+            UserStaticMethod.num_accesses += 1
+            return super(UserStaticMethod, self).__get__(*args)
+
+    class TestClass(object):
+        cls = UserStaticMethod
+
+        @UserStaticMethod
+        def foo(arg):
+            return arg * 2
+
+    i1 = TestClass()
+    assert i1.foo(1) == 2
+
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+
+    assert i2.cls.num_accesses == 1
+    assert i2.foo(2) == 4
+    assert i2.foo(3) == 6
+    assert i2.foo('hi') == 'hihi'
+    assert i2.cls.num_accesses == 4
+
+    class UserComplex(complex):
+        pass
+
+    c1 = UserComplex(1, 2)
+    s = tc.pickle_object(c1)
+    c2 = tc.unpickle_object(s)
+    assert c1 == c2
+
+    class UserFloat(float):
+        pass
+
+    f1 = UserFloat(1.2345)
+    s = tc.pickle_object(f1)
+    f2 = tc.unpickle_object(s)
+    assert f1 == f2
+
+    class UserLong(long):
+        pass
+
+    l1 = UserLong(1 << 32)
+    s = tc.pickle_object(l1)
+    l2 = tc.unpickle_object(s)
+    assert l1 == l2
+
+    class UserInt(int):
+        pass
+
+    i1 = UserInt(-234343)
+    s = tc.pickle_object(i1)
+    i2 = tc.unpickle_object(s)
+    assert i1 == i2
+
+    class UserTuple(tuple):
+        def __new__(cls, iter):
+            t = tuple(iter)
+            return super(UserTuple, cls).__new__(cls, t + ('EXTRAITEM',))
+
+    t1 = UserTuple([1, 2, 3])
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1 == t2
+    assert t2[3] == 'EXTRAITEM'
+    t3 = t2.__class__([4, 5])
+    assert t3 == (4, 5, 'EXTRAITEM')
+
+    # self-referencing
+    l = []
+    t1 = UserTuple([1, l])
+    l.append(t1)
+    s = tc.pickle_object(t1)
+    t2 = tc.unpickle_object(s)
+    assert t1.__repr__() == t2.__repr__()
+    assert t2[1][0] == t2
+
+    class UserEnumerate(enumerate):
+        pass
+
+    e1 = UserEnumerate([1, 2, 7])
+    e1.next()
+    s = tc.pickle_object(e1)
+    e2 = tc.unpickle_object(s)
+    assert e2.next() == (1, 2)
+    assert e2.next() == (2, 7)
+
+    class UserReversed(reversed):
+        pass
+
+    r1 = UserReversed([1, 2, 3])
+    assert r1.next() == 3
+    s = tc.pickle_object(r1)
+    r2 = tc.unpickle_object(s)
+    assert r2.next() == 2
+    assert r2.next() == 1
+
+    # gratz. we just passed the most sophisticatd pickling test cases
+    # known to mankind
+    print "Builtin subclass pickling OK!"
+
+
+def test_pickle_descr_side_effects():
+
+    class UserDescr(object):
+        def __get__(self, obj, objtype):
+            raise RuntimeError('getting illegal attr')
+
+        def __set__(self, obj, name):
+            raise RuntimeError('setting illegal attr')
+
+    class TestClass(object):
+        desc = UserDescr()
+
+    inst1 = TestClass()
+    s = tc.pickle_object(inst1)
+    inst2 = tc.unpickle_object(s)
+
+    try:
+        inst2.desc
+    except RuntimeError as e:
+        # accessing the descriptor gives the
+        # expected exception
+        assert str(e) == 'getting illegal attr'
+    else:
+        raise RuntimeError
+
+    print "Descriptor pickling OK!"
+
+
+try:
+    test_pickle_int()
+    test_pickle_long()
+    test_pickle_string()
+    test_pickle_unicode()
+    test_pickle_tuple()
+    test_pickle_list()
+    test_pickle_dict()
+    test_pickle_set()
+    test_pickle_frozenset()
+    test_pickle_cfunction()
+    test_pickle_code()
+    test_pickle_function()
+    test_pickle_class()
+    test_pickle_instance()
+    test_pickle_type()
+    test_pickle_bool()
+    test_pickle_bytearray()
+    test_pickle_baseobject()
+    test_pickle_notimplemented()
+    test_pickle_ellipsis()
+    test_pickle_nullimporter()
+    test_pickle_syslonginfo()
+    test_pickle_sysfloatinfo()
+    test_pickle_sys_singleton_namedtuples()
+    test_pickle_cell()
+    test_pickle_member_descriptor()
+    test_pickle_getset_descriptor()
+    test_pickle_file()
+    test_pickle_super()
+    test_pickle_classmethod()
+    test_pickle_wrapper_descriptor()
+    test_pickle_method_wrapper()
+    test_pickle_range()
+    test_pickle_slice()
+    test_pickle_staticmethod()
+    test_pickle_buffer()
+    test_pickle_memoryview()
+    test_pickle_property()
+    test_pickle_enumerate()
+    test_pickle_float()
+    test_pickle_complex()
+    test_pickle_dictproxy()
+    test_pickle_reversed()
+    test_pickle_generator()
+    test_pickle_frame()
+    test_pickle_traceback()
+    test_pickle_weakref()
+    test_pickle_weak_proxy()
+    test_pickle_dictviews()
+    test_pickle_iterators()
+    test_pickle_exceptions()
+    test_pickle_builtin_method()
+    test_pickle_operator_builtins()
+    test_pickle_builtin_subclasses()
+    test_pickle_descr_side_effects()
+except Exception as e:
+    traceback.print_exc()
+finally:
+    tc.global_event(tc.SDL_QUIT, None)

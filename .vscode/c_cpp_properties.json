@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/src/**",
                 "${workspaceFolder}/deps/SDL2/include",
-                "${workspaceFolder}/deps/openaal-soft/include"
+                "${workspaceFolder}/deps/openal-soft/include",
+                "${workspaceFolder}/deps/Python/Include"
             ],
             "defines": [ ],
             "compilerPath": "/usr/bin/g++",

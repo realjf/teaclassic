@@ -1,0 +1,145 @@
+#
+#  This file is part of Permafrost Engine.
+#  Copyright (C) 2018-2020 Eduard Permyakov
+#
+#  Permafrost Engine is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Permafrost Engine is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#  Linking this software statically or dynamically with other modules is making
+#  a combined work based on this software. Thus, the terms and conditions of
+#  the GNU General Public License cover the whole combination.
+#
+#  As a special exception, the copyright holders of Permafrost Engine give
+#  you permission to link Permafrost Engine with independent modules to produce
+#  an executable, regardless of the license terms of these independent
+#  modules, and to copy and distribute the resulting executable under
+#  terms of your choice, provided that you also meet, for each linked
+#  independent module, the terms and conditions of the license of that
+#  module. An independent module is a module which is not derived from
+#  or based on Permafrost Engine. If you modify Permafrost Engine, you may
+#  extend this exception to your version of Permafrost Engine, but you are not
+#  obliged to do so. If you do not wish to do so, delete this exception
+#  statement from your version.
+#
+
+import tc
+from constants import *
+import globals
+
+import common.button_style_ctx as btc
+
+
+class DiplomacyTabWindow(tc.Window):
+
+    DISABLED_BG_COLOR = (40, 40, 40, 255)
+    DISABLED_TEXT_COLOR = (60, 60, 60, 255)
+
+    def __init__(self):
+        vresx, vresy = (1920, 1080)
+        super(DiplomacyTabWindow, self).__init__("DiplomacyTab",
+                                                 (0, UI_TAB_BAR_HEIGHT + 1, UI_LEFT_PANE_WIDTH, vresy -
+                                                  UI_TAB_BAR_HEIGHT - 1), tc.NK_WINDOW_BORDER, (vresx, vresy),
+                                                 resize_mask=tc.ANCHOR_X_LEFT | tc.ANCHOR_Y_TOP | tc.ANCHOR_Y_BOT)
+        self.selected_fac_idx = 0
+
+        factions_list = tc.get_factions_list()
+        assert len(factions_list) > 0
+        self.fac_name = factions_list[self.selected_fac_idx]["name"]
+        self.fac_color = factions_list[self.selected_fac_idx]["color"]
+
+    def factions_group(self):
+        factions_list = tc.get_factions_list()
+
+        self.layout_row_static(25, UI_LEFT_PANE_WIDTH-60, 1)
+        for i in range(0, len(factions_list)):
+            old = self.selected_fac_idx
+            on = self.selectable_label(factions_list[i]["name"],
+                                       tc.NK_TEXT_ALIGN_LEFT, i == self.selected_fac_idx)
+            if on:
+                self.selected_fac_idx = i
+            if self.selected_fac_idx != old:
+                factions_list = tc.get_factions_list()
+                tc.global_event(EVENT_DIPLO_FAC_SELECTION_CHANGED, i)
+
+    def update(self):
+        factions_list = tc.get_factions_list()
+
+        self.layout_row_dynamic(20, 1)
+        self.label_colored_wrap("Factions:", (255, 255, 255))
+
+        self.layout_row_static(400, UI_LEFT_PANE_WIDTH-30, 1)
+        self.group("Factions", tc.NK_WINDOW_BORDER, self.factions_group)
+
+        def on_delete_selected():
+            tc.global_event(EVENT_DIPLO_FAC_REMOVED,
+                            factions_list[self.selected_fac_idx]["id"])
+
+        self.layout_row_dynamic(30, 1)
+        if len(factions_list) > 1:
+            self.button_label("Delete Selected", on_delete_selected)
+        else:  # disabled - We cannot delete the very last faction
+
+            button_style = {
+                "normal": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "hover": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "active": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "text_normal": DiplomacyTabWindow.DISABLED_TEXT_COLOR,
+                "text_hover": DiplomacyTabWindow.DISABLED_TEXT_COLOR,
+                "text_active": DiplomacyTabWindow.DISABLED_TEXT_COLOR
+            }
+            with btc.ButtonStyle(**button_style):
+                self.button_label("Delete Selected", lambda: None)
+
+        self.layout_row_dynamic(10, 1)
+
+        self.layout_row_dynamic(20, 1)
+        self.label_colored_wrap("Faction Name:", (255, 255, 255))
+        self.layout_row_dynamic(30, 1)
+        self.fac_name = self.edit_string(tc.NK_EDIT_SIMPLE, self.fac_name)
+
+        self.layout_row_dynamic(20, 1)
+        self.label_colored_wrap("Faction Color:", (255, 255, 255))
+        self.layout_row_dynamic(30, 1)
+        self.fac_color = self.color_picker(
+            self.fac_color, (UI_LEFT_PANE_WIDTH-30, 120))
+
+        self.layout_row_dynamic(10, 1)
+
+        def on_update_fac():
+            facs = tc.get_factions_list()
+            tc.global_event(EVENT_DIPLO_FAC_CHANGED,
+                            (facs[self.selected_fac_idx]["id"], self.fac_name, self.fac_color))
+
+        def on_new_fac():
+            tc.global_event(EVENT_DIPLO_FAC_NEW,
+                            (self.fac_name, self.fac_color))
+
+        if len(self.fac_name) > 0:
+            self.layout_row_dynamic(30, 1)
+            self.button_label("Update Selected", on_update_fac)
+            self.layout_row_dynamic(30, 1)
+            self.button_label("Add New Faction", on_new_fac)
+        else:  # disabled - Can't update name to empty string
+            button_style = {
+                "normal": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "hover": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "active": DiplomacyTabWindow.DISABLED_BG_COLOR,
+                "text_normal": DiplomacyTabWindow.DISABLED_TEXT_COLOR,
+                "text_hover": DiplomacyTabWindow.DISABLED_TEXT_COLOR,
+                "text_active": DiplomacyTabWindow.DISABLED_TEXT_COLOR
+            }
+            with btc.ButtonStyle(**button_style):
+                self.layout_row_dynamic(30, 1)
+                self.button_label("Update Selected", lambda: None)
+                self.layout_row_dynamic(30, 1)
+                self.button_label("Add New Faction", lambda: None)
