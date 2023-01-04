@@ -4,6 +4,14 @@
         "assert.h": "c",
         "stdbool.h": "c",
         "sdl.h": "c",
-        "event.h": "c"
+        "event.h": "c",
+        "glew.h": "c",
+        "tcchunk.h": "c",
+        "map.h": "c",
+        "tc_math.h": "c",
+        "tile.h": "c",
+        "perf.h": "c",
+        "task.h": "c",
+        "gl_texture.h": "c"
     }
 }

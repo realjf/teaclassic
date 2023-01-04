@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.12)
 set(PROJECT_NAME teaclassic)
 
 set(TEACLASSIC_MAJOR_VERSION 0)
@@ -23,11 +23,24 @@ SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 # set library output path
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
-file(GLOB_RECURSE SOURCES "src/**.c" "src/**.h")
+include(cmake/common.cmake)
+include(cmake/common_macros.cmake)
+include(cmake/sdl.cmake)
+include(cmake/glew.cmake)
 
-include_directories(. deps/SDL2/include)
-
-add_executable(${PROJECT_NAME} ${SOURCES})
 
 
+include_directories(.)
+include_directories(deps/SDL2/include)
+include_directories(deps/openal-soft/include)
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-volatile")
+
+
+SETUP_APP(${PROJECT_NAME} ${TEACLASSIC_VERSION})
+
+
+target_link_libraries(${PROJECT_NAME} sdl2)
