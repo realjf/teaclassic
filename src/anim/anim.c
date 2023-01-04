@@ -57,20 +57,20 @@ static void a_mat_from_sqt(const struct SQT *sqt, mat4x4_t *out)
     mat4x4_t rot, trans, scale;
     mat4x4_t tmp;
 
-    PFM_Mat4x4_MakeScale(sqt->scale.x, sqt->scale.y, sqt->scale.z, &scale);
-    PFM_Mat4x4_MakeTrans(sqt->trans.x, sqt->trans.y, sqt->trans.z, &trans);
-    PFM_Mat4x4_RotFromQuat(&sqt->quat_rotation, &rot);
+    TCM_Mat4x4_MakeScale(sqt->scale.x, sqt->scale.y, sqt->scale.z, &scale);
+    TCM_Mat4x4_MakeTrans(sqt->trans.x, sqt->trans.y, sqt->trans.z, &trans);
+    TCM_Mat4x4_RotFromQuat(&sqt->quat_rotation, &rot);
 
     /*  (T * R * S)
      */
-    PFM_Mat4x4_Mult4x4(&rot, &scale, &tmp);
-    PFM_Mat4x4_Mult4x4(&trans, &tmp, out);
+    TCM_Mat4x4_Mult4x4(&rot, &scale, &tmp);
+    TCM_Mat4x4_Mult4x4(&trans, &tmp, out);
 }
 
 static void a_make_bind_mat(int joint_idx, const struct skeleton *skel, mat4x4_t *out)
 {
     mat4x4_t bind_trans;
-    PFM_Mat4x4_Identity(&bind_trans);
+    TCM_Mat4x4_Identity(&bind_trans);
 
     /* Walk up the bone heirarchy, multiplying our bind transform matrix by the parent-relative
      * transform of each bone we visit. In the end, this the bind matrix will hold a transformation
@@ -85,7 +85,7 @@ static void a_make_bind_mat(int joint_idx, const struct skeleton *skel, mat4x4_t
         mat4x4_t to_parent, to_curr = bind_trans;
 
         a_mat_from_sqt(bind_sqt, &to_parent);
-        PFM_Mat4x4_Mult4x4(&to_parent, &to_curr, &bind_trans);
+        TCM_Mat4x4_Mult4x4(&to_parent, &to_curr, &bind_trans);
 
         joint_idx = joint->parent_idx;
     }
@@ -99,7 +99,7 @@ static void a_make_pose_mat(uint32_t uid, int joint_idx, const struct skeleton *
     struct anim_sample *sample = &ctx->active->samples[ctx->curr_frame];
 
     mat4x4_t pose_trans;
-    PFM_Mat4x4_Identity(&pose_trans);
+    TCM_Mat4x4_Identity(&pose_trans);
 
     /* Same as a_make_bind_mat, except for the current pose. */
     while(joint_idx >= 0) {
@@ -109,7 +109,7 @@ static void a_make_pose_mat(uint32_t uid, int joint_idx, const struct skeleton *
         mat4x4_t to_parent, to_curr = pose_trans;
 
         a_mat_from_sqt(pose_sqt, &to_parent);
-        PFM_Mat4x4_Mult4x4(&to_parent, &to_curr, &pose_trans);
+        TCM_Mat4x4_Mult4x4(&to_parent, &to_curr, &pose_trans);
 
         joint_idx = joint->parent_idx;
     }
@@ -235,7 +235,7 @@ const struct skeleton *A_GetCurrPoseSkeleton(uint32_t uid)
         /* Update the inverse bind matrices for the current frame */
         mat4x4_t pose_mat;
         a_make_pose_mat(uid, i, ret, &pose_mat);
-        PFM_Mat4x4_Inverse(&pose_mat, &ret->inv_bind_poses[i]);
+        TCM_Mat4x4_Inverse(&pose_mat, &ret->inv_bind_poses[i]);
     }
 
     return ret;
@@ -249,7 +249,7 @@ void A_PrepareInvBindMatrices(const struct skeleton *skel)
 
         mat4x4_t bind_mat;
         a_make_bind_mat(i, skel, &bind_mat);
-        PFM_Mat4x4_Inverse(&bind_mat, &skel->inv_bind_poses[i]);
+        TCM_Mat4x4_Inverse(&bind_mat, &skel->inv_bind_poses[i]);
     }
 }
 
@@ -297,11 +297,11 @@ bool A_SaveState(struct SDL_RWops *stream, uint32_t uid)
     struct anim_ctx *ctx = a_ctx_for_uid(uid);
 
     struct attr active = (struct attr){ .type = TYPE_STRING };
-    pf_snprintf(active.val.as_string, sizeof(active.val.as_string), "%s", ctx->active->name);
+    tc_snprintf(active.val.as_string, sizeof(active.val.as_string), "%s", ctx->active->name);
     CHK_TRUE_RET(Attr_Write(stream, &active, "active_clip"));
 
     struct attr idle = (struct attr){ .type = TYPE_STRING };
-    pf_snprintf(idle.val.as_string, sizeof(idle.val.as_string), "%s", ctx->idle->name);
+    tc_snprintf(idle.val.as_string, sizeof(idle.val.as_string), "%s", ctx->idle->name);
     CHK_TRUE_RET(Attr_Write(stream, &idle, "idle_clip"));
 
     struct attr mode = (struct attr){

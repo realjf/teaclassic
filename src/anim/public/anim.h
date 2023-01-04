@@ -3,19 +3,19 @@
 
 #include "../../tc_math.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <stdbool.h>
 
 #include <SDL.h> /* for SDL_RWops */
 
-struct pfobj_hdr;
+struct tcobj_hdr;
 struct entity;
 struct skeleton;
 
 enum anim_mode {
-    ANIM_MODE_LOOP,
-    ANIM_MODE_ONCE,
+  ANIM_MODE_LOOP,
+  ANIM_MODE_ONCE,
 };
 
 /*###########################################################################*/
@@ -23,20 +23,20 @@ enum anim_mode {
 /*###########################################################################*/
 
 /* ---------------------------------------------------------------------------
- * Set the animation clip that will play when no other animation clips are active.
+ * Set the animation clip that will play when no other animation clips are
+ * active.
  * ---------------------------------------------------------------------------
  */
-void A_SetIdleClip(uint32_t uid, const char *name,
-                   unsigned key_fps);
+void A_SetIdleClip(uint32_t uid, const char *name, unsigned key_fps);
 
 /* ---------------------------------------------------------------------------
- * If anim_mode is 'ANIM_MODE_ONCE', the entity will fire an 'EVENT_ANIM_FINISHED'
- * event and go back to playing the 'idle' animtion once the clip has played once.
- * Otherwise, it will keep looping the clip.
+ * If anim_mode is 'ANIM_MODE_ONCE', the entity will fire an
+ * 'EVENT_ANIM_FINISHED' event and go back to playing the 'idle' animtion once
+ * the clip has played once. Otherwise, it will keep looping the clip.
  * ---------------------------------------------------------------------------
  */
-void A_SetActiveClip(uint32_t uid, const char *name,
-                     enum anim_mode mode, unsigned key_fps);
+void A_SetActiveClip(uint32_t uid, const char *name, enum anim_mode mode,
+                     unsigned key_fps);
 
 /* ---------------------------------------------------------------------------
  * Retreive a copy of the state needed to render an animated entity.
@@ -152,7 +152,7 @@ size_t A_AL_CtxBuffSize(void);
  * which is then returned in a malloc'd buffer.
  * ---------------------------------------------------------------------------
  */
-void *A_AL_PrivFromStream(const struct pfobj_hdr *header, SDL_RWops *stream);
+void *A_AL_PrivFromStream(const struct tcobj_hdr *header, SDL_RWops *stream);
 
 /* ---------------------------------------------------------------------------
  * Dumps private animation data in TC Object format.
