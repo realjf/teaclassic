@@ -36,7 +36,7 @@ import globals
 from constants import *
 
 
-PFSCENE_VERSION = 1.0
+TCSCENE_VERSION = 1.0
 OBJECTS_LIST = [
 
     ########################################################################
@@ -647,7 +647,7 @@ def __meta_dict_for_path(path):
 def save_scene(filename):
     with open(tc.get_basedir() + "/" + filename, "w") as scenefile:
 
-        scenefile.write("version %.01f\n" % (PFSCENE_VERSION,))
+        scenefile.write("version %.01f\n" % (TCSCENE_VERSION,))
         scenefile.write("num_sections 2\n")
 
         scenefile.write("section \"factions\"\n")

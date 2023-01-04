@@ -66,9 +66,9 @@ class VideoSettingsWindow(tc.Window):
 
         self.mode_idx = 0
         self.mode_opts = [
-            tc.PF_WF_FULLSCREEN,
-            tc.PF_WF_WINDOW,
-            tc.PF_WF_BORDERLESS_WIN,
+            tc.TC_WF_FULLSCREEN,
+            tc.TC_WF_WINDOW,
+            tc.TC_WF_BORDERLESS_WIN,
         ]
         self.mode_opt_strings = [
             "Fullscreen",

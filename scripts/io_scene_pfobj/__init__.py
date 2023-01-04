@@ -53,11 +53,11 @@ bl_info = {
 }
 
 
-class ImportPFOBJ(bpy.types.Operator, ImportHelper):
+class ImportTCOBJ(bpy.types.Operator, ImportHelper):
     """Load a Permafrost Engine OBJ File"""
 
     bl_idname = "import_scene.tcobj"
-    bl_label = "Import PFOBJ"
+    bl_label = "Import TCOBJ"
     filename_ext = ".tcobj"
     filter_glob = StringProperty(
         default="*.tcobj",
@@ -69,11 +69,11 @@ class ImportPFOBJ(bpy.types.Operator, ImportHelper):
         return {'FINISHED'}
 
 
-class ExportPFOBJ(bpy.types.Operator, ExportHelper):
+class ExportTCOBJ(bpy.types.Operator, ExportHelper):
     """Save a Permafrost Engine Object File"""
 
     bl_idname = "export_scene.tcobj"
-    bl_label = 'Export PFOBJ'
+    bl_label = 'Export TCOBJ'
 
     filter_glob = StringProperty(
         default="*.tcobj",
@@ -110,12 +110,12 @@ class ExportPFOBJ(bpy.types.Operator, ExportHelper):
 
 
 def menu_func_import(self, context):
-    self.layout.operator(ImportPFOBJ.bl_idname,
+    self.layout.operator(ImportTCOBJ.bl_idname,
                          text="Permafrost Engine Object (.tcobj)")
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportPFOBJ.bl_idname,
+    self.layout.operator(ExportTCOBJ.bl_idname,
                          text="Permafrost Engine Object (.tcobj)")
 
 

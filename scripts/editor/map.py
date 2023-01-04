@@ -37,7 +37,7 @@ import traceback
 import copy
 
 
-EDITOR_PFMAP_VERSION = 1.0
+EDITOR_TCMAP_VERSION = 1.0
 
 
 def tile_to_string(tile):
@@ -177,7 +177,7 @@ class Map(object):
 
     def tcmap_str(self):
         ret = ""
-        ret += "version " + str(EDITOR_PFMAP_VERSION) + "\n"
+        ret += "version " + str(EDITOR_TCMAP_VERSION) + "\n"
         ret += "num_materials " + str(len(self.materials)) + "\n"
         ret += "num_rows " + str(self.chunk_rows) + "\n"
         ret += "num_cols " + str(self.chunk_cols) + "\n"
@@ -258,7 +258,7 @@ class Map(object):
         line_idx = 0
 
         try:
-            assert lines[0].split()[1] == str(EDITOR_PFMAP_VERSION)
+            assert lines[0].split()[1] == str(EDITOR_TCMAP_VERSION)
             num_mats = int(lines[1].split()[1])
             ret.chunk_rows = int(lines[2].split()[1])
             ret.chunk_cols = int(lines[3].split()[1])
@@ -281,7 +281,7 @@ class Map(object):
                 ret.chunks.append(row)
         except:
             traceback.print_exc()
-            print("Could not parse PFMAP string.")
+            print("Could not parse TCMAP string.")
             return None
 
         return ret

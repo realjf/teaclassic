@@ -1,6 +1,6 @@
 #
-#  This file is part of Permafrost Engine. 
-#  Copyright (C) 2017-2020 Eduard Permyakov 
+#  This file is part of Permafrost Engine.
+#  Copyright (C) 2017-2020 Eduard Permyakov
 #
 #  Permafrost Engine is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -14,21 +14,21 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
-# 
-#  Linking this software statically or dynamically with other modules is making 
-#  a combined work based on this software. Thus, the terms and conditions of 
-#  the GNU General Public License cover the whole combination. 
-#  
-#  As a special exception, the copyright holders of Permafrost Engine give 
-#  you permission to link Permafrost Engine with independent modules to produce 
-#  an executable, regardless of the license terms of these independent 
-#  modules, and to copy and distribute the resulting executable under 
-#  terms of your choice, provided that you also meet, for each linked 
-#  independent module, the terms and conditions of the license of that 
-#  module. An independent module is a module which is not derived from 
-#  or based on Permafrost Engine. If you modify Permafrost Engine, you may 
-#  extend this exception to your version of Permafrost Engine, but you are not 
-#  obliged to do so. If you do not wish to do so, delete this exception 
+#
+#  Linking this software statically or dynamically with other modules is making
+#  a combined work based on this software. Thus, the terms and conditions of
+#  the GNU General Public License cover the whole combination.
+#
+#  As a special exception, the copyright holders of Permafrost Engine give
+#  you permission to link Permafrost Engine with independent modules to produce
+#  an executable, regardless of the license terms of these independent
+#  modules, and to copy and distribute the resulting executable under
+#  terms of your choice, provided that you also meet, for each linked
+#  independent module, the terms and conditions of the license of that
+#  module. An independent module is a module which is not derived from
+#  or based on Permafrost Engine. If you modify Permafrost Engine, you may
+#  extend this exception to your version of Permafrost Engine, but you are not
+#  obliged to do so. If you do not wish to do so, delete this exception
 #  statement from your version.
 #
 import bpy
@@ -39,7 +39,8 @@ from mathutils import Quaternion
 from mathutils import Euler
 from mathutils import Vector
 
-PFOBJ_VER = 1.0
+TCOBJ_VER = 1.0
+
 
 def mesh_triangulate(mesh):
     import bmesh
@@ -49,14 +50,16 @@ def mesh_triangulate(mesh):
     bm.to_mesh(mesh)
     bm.free()
 
+
 def current_pose_bbox(global_matrix, mesh_objs, local_origin):
     # We build a single bounding box encapsulating all selected objects - this only works
-    # if a single entity is composed of multiple objects - otherwise they must be 
+    # if a single entity is composed of multiple objects - otherwise they must be
     # exported one at a time
     bbox_verts = []
     for obj in mesh_objs:
         ws_mat = Matrix.Identity(4) if local_origin else obj.matrix_world
-        bbox_verts += [global_matrix * ws_mat * Vector(b) for b in obj.bound_box]
+        bbox_verts += [global_matrix * ws_mat *
+                       Vector(b) for b in obj.bound_box]
 
     min_x = min(p.x for p in bbox_verts)
     max_x = max(p.x for p in bbox_verts)
@@ -67,12 +70,14 @@ def current_pose_bbox(global_matrix, mesh_objs, local_origin):
 
     return min_x, max_x, min_y, max_y, min_z, max_z
 
+
 def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
     with open(filepath, "w", encoding="ascii") as ofile:
 
-        mesh_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+        mesh_objs = [
+            obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
         meshes = [obj.data for obj in mesh_objs]
-        arms   = [obj for obj in bpy.context.selected_objects if obj.type == 'ARMATURE']
+        arms = [obj for obj in bpy.context.selected_objects if obj.type == 'ARMATURE']
 
         textured_mats = []
         for mesh in meshes:
@@ -85,28 +90,30 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
             mesh.calc_normals_split()
 
         num_verts = 0
-        for mesh in meshes: 
+        for mesh in meshes:
             num_verts += sum([face.loop_total for face in mesh.polygons])
 
-        num_joints    = sum([len(arm.pose.bones) for arm in arms])
-        num_as        = len(bpy.data.actions.items())
+        num_joints = sum([len(arm.pose.bones) for arm in arms])
+        num_as = len(bpy.data.actions.items())
         num_materials = len(textured_mats)
-        frame_counts  = [str(int(a.frame_range[1] - a.frame_range[0] + 1)) for a in bpy.data.actions]
+        frame_counts = [str(int(a.frame_range[1] - a.frame_range[0] + 1))
+                        for a in bpy.data.actions]
 
         #####################################################################
         # Write header
         #####################################################################
 
-        ofile.write("version        " + str(PFOBJ_VER) + "\n")
+        ofile.write("version        " + str(TCOBJ_VER) + "\n")
         ofile.write("num_verts      " + str(num_verts) + "\n")
         ofile.write("num_joints     " + str(num_joints) + "\n")
         ofile.write("num_materials  " + str(num_materials) + "\n")
         ofile.write("num_as         " + str(num_as) + "\n")
         ofile.write("frame_counts   " + " ".join(frame_counts) + "\n")
-        ofile.write("has_collision  " + str(1 if export_bbox is True else 0) + "\n")
+        ofile.write("has_collision  " +
+                    str(1 if export_bbox is True else 0) + "\n")
 
         #####################################################################
-        # Write vertices and their attributes 
+        # Write vertices and their attributes
         #####################################################################
 
         for obj in mesh_objs:
@@ -115,7 +122,8 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
             for face in mesh.polygons:
                 for loop_idx in face.loop_indices:
 
-                    ws_mat = Matrix.Identity(4) if local_origin else obj.matrix_world
+                    ws_mat = Matrix.Identity(
+                        4) if local_origin else obj.matrix_world
                     trans = global_matrix * ws_mat
 
                     v = mesh.vertices[mesh.loops[loop_idx].vertex_index]
@@ -138,7 +146,7 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
                     line = line.format(n=normal)
                     ofile.write(line)
 
-                    line = "vw ";
+                    line = "vw "
                     joint_idx_weight_map = {}
                     for vg in v.groups:
 
@@ -165,13 +173,14 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
                     line += "\n"
                     ofile.write(line)
 
-                    mat_idx = textured_mats.index( mesh.materials[face.material_index] )
+                    mat_idx = textured_mats.index(
+                        mesh.materials[face.material_index])
                     line = "vm {idx}\n"
                     line = line.format(idx=mat_idx)
                     ofile.write(line)
 
         #####################################################################
-        # Write materials 
+        # Write materials
         #####################################################################
 
         for material in textured_mats:
@@ -183,11 +192,13 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
             ofile.write(line)
 
             line = "    diffuse {c[0]:.6f} {c[1]:.6f} {c[2]:.6f}\n"
-            line = line.format(c=(material.diffuse_intensity * material.diffuse_color))
+            line = line.format(
+                c=(material.diffuse_intensity * material.diffuse_color))
             ofile.write(line)
 
             line = "    specular {c[0]:.6f} {c[1]:.6f} {c[2]:.6f}\n"
-            line = line.format(c=(material.specular_intensity * material.specular_color))
+            line = line.format(
+                c=(material.specular_intensity * material.specular_color))
             ofile.write(line)
 
             line = "    texture " + material.active_texture.image.name + "\n"
@@ -204,8 +215,9 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
             # write Joints
             for bone in arm.bones:
 
-                line = "j {parent_idx} {name}" 
-                parent_idx = arm.bones.values().index(bone.parent) + 1 if bone.parent is not None else 0
+                line = "j {parent_idx} {name}"
+                parent_idx = arm.bones.values().index(bone.parent) + \
+                    1 if bone.parent is not None else 0
                 line = line.format(parent_idx=parent_idx, name=bone.name)
 
                 # Root bones are given in world coordinates - the rest of the bones'
@@ -220,7 +232,7 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
 
                 # Unsure why we have to invert the quaternion here...
                 # If we convert the quaternion to a matrix using standard algorithms in the engine
-                # we get the transpose of the matrix we were supposed to get 
+                # we get the transpose of the matrix we were supposed to get
                 line += " {q.x:.6f}/{q.y:.6f}/{q.z:.6f}/{q.w:.6f}"
                 line = line.format(q=mat_final.to_quaternion().inverted())
 
@@ -243,7 +255,7 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
             if len(arms) == 0:
                 break
 
-            frame_cnt = action.frame_range[1] - action.frame_range[0] + 1;
+            frame_cnt = action.frame_range[1] - action.frame_range[0] + 1
             ofile.write("as " + action.name + " " + str(int(frame_cnt)) + "\n")
 
             # Set the current action
@@ -255,7 +267,8 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
                 bpy.context.scene.frame_set(f)
 
                 obj = arms[0]
-                ws_mat = Matrix.Identity(4) if local_origin else obj.matrix_world
+                ws_mat = Matrix.Identity(
+                    4) if local_origin else obj.matrix_world
 
                 for bone in obj.data.bones:
                     pbone = obj.pose.bones[bone.name]
@@ -270,7 +283,8 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
                     else:
                         mat_final = global_matrix * ws_mat * pbone.matrix
 
-                    line = line.format(idx=idx, s=mat_final.to_scale(), q=mat_final.to_quaternion().inverted(), t=mat_final.to_translation())
+                    line = line.format(idx=idx, s=mat_final.to_scale(
+                    ), q=mat_final.to_quaternion().inverted(), t=mat_final.to_translation())
 
                     ofile.write(line)
 
@@ -278,7 +292,8 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
                     continue
 
                 # Write bbox for current animation frame
-                min_x, max_x, min_y, max_y, min_z, max_z = current_pose_bbox(global_matrix, mesh_objs, local_origin)
+                min_x, max_x, min_y, max_y, min_z, max_z = current_pose_bbox(
+                    global_matrix, mesh_objs, local_origin)
                 line = "\tx_bounds {a:.6f} {b:.6f}\n".format(a=min_x, b=max_x)
                 ofile.write(line)
                 line = "\ty_bounds {a:.6f} {b:.6f}\n".format(a=min_y, b=max_y)
@@ -291,7 +306,8 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
         #####################################################################
 
         bpy.ops.object.mode_set(mode='EDIT')
-        min_x, max_x, min_y, max_y, min_z, max_z = current_pose_bbox(global_matrix, mesh_objs, local_origin)
+        min_x, max_x, min_y, max_y, min_z, max_z = current_pose_bbox(
+            global_matrix, mesh_objs, local_origin)
         bpy.ops.object.mode_set(mode='OBJECT')
 
         line = "x_bounds {a:.6f} {b:.6f}\n".format(a=min_x, b=max_x)
@@ -302,4 +318,3 @@ def save(operator, context, filepath, global_matrix, export_bbox, local_origin):
         ofile.write(line)
 
         return {'FINISHED'}
-
