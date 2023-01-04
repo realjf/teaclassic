@@ -21,532 +21,513 @@ VEC_IMPL(static inline, event, SDL_Event)
 /* GLOBAL VARIABLES                                                          */
 /*****************************************************************************/
 
-const char                      *g_basepath; /* write-once - path of the base directory */
-unsigned long                    g_frame_idx = 0;
+const char *g_basepath; /* write-once - path of the base directory */
+unsigned long g_frame_idx = 0;
 
-SDL_threadID                     g_main_thread_id;   /* write-once */
-SDL_threadID                     g_render_thread_id; /* write-once */
+SDL_threadID g_main_thread_id;   /* write-once */
+SDL_threadID g_render_thread_id; /* write-once */
 
 /*****************************************************************************/
 /* STATIC VARIABLES                                                          */
 /*****************************************************************************/
 
-static SDL_Window               *s_window;
-static SDL_Surface              *s_loading_screen;
+static SDL_Window *s_window;
+static SDL_Surface *s_loading_screen;
 
 /* Flag to perform a single step of the simulation while the game is paused.
  * Cleared at after performing the step.
  */
-static bool                      s_step_frame = false;
-static bool                      s_quit = false;
-static vec_event_t               s_prev_tick_events;
+static bool s_step_frame = false;
+static bool s_quit = false;
+static vec_event_t s_prev_tick_events;
 
-static SDL_Thread               *s_render_thread;
-static struct render_sync_state  s_rstate;
+static SDL_Thread *s_render_thread;
+static struct render_sync_state s_rstate;
 
-static int                       s_argc;
-static char                    **s_argv;
+static int s_argc;
+static char **s_argv;
 
 /*****************************************************************************/
 /* STATIC FUNCTIONS                                                          */
 /*****************************************************************************/
 
-static void process_sdl_events(void)
-{
-    PERF_ENTER();
-    UI_InputBegin();
+static void process_sdl_events(void) {
+  PERF_ENTER();
+  UI_InputBegin();
 
-    vec_event_reset(&s_prev_tick_events);
-    SDL_Event event;
+  vec_event_reset(&s_prev_tick_events);
+  SDL_Event event;
 
-    while(SDL_PollEvent(&event)) {
+  while (SDL_PollEvent(&event)) {
 
-        UI_HandleEvent(&event);
-        vec_event_push(&s_prev_tick_events, event);
+    UI_HandleEvent(&event);
+    vec_event_push(&s_prev_tick_events, event);
 
-        switch(event.type) {
+    switch (event.type) {
 
-        case SDL_KEYDOWN:
-            if(event.key.keysym.sym == SDLK_q && (event.key.keysym.mod & KMOD_LALT)) {
-                s_quit = true;
-            }
-            break;
+    case SDL_KEYDOWN:
+      if (event.key.keysym.sym == SDLK_q &&
+          (event.key.keysym.mod & KMOD_LALT)) {
+        s_quit = true;
+      }
+      break;
 
-        case SDL_USEREVENT:
-            if(event.user.code == 0) {
-                E_Global_Notify(EVENT_60HZ_TICK, NULL, ES_ENGINE);
-            }
-            break;
-        default:
-            break;
-        }
+    case SDL_USEREVENT:
+      if (event.user.code == 0) {
+        E_Global_Notify(EVENT_60HZ_TICK, NULL, ES_ENGINE);
+      }
+      break;
+    default:
+      break;
     }
+  }
 
-    for(int i = 0; i < vec_size(&s_prev_tick_events); i++) {
-        const SDL_Event *event = &vec_AT(&s_prev_tick_events, i);
-        E_Global_Notify(event->type, (void*)event, ES_ENGINE);
-    }
+  for (int i = 0; i < vec_size(&s_prev_tick_events); i++) {
+    const SDL_Event *event = &vec_AT(&s_prev_tick_events, i);
+    E_Global_Notify(event->type, (void *)event, ES_ENGINE);
+  }
 
-    UI_InputEnd();
-    PERF_RETURN_VOID();
+  UI_InputEnd();
+  PERF_RETURN_VOID();
 }
 
-static void on_user_quit(void *user, void *event)
-{
-    s_quit = true;
-}
+static void on_user_quit(void *user, void *event) { s_quit = true; }
 
-static bool rstate_init(struct render_sync_state *rstate)
-{
-    rstate->start = false;
+static bool rstate_init(struct render_sync_state *rstate) {
+  rstate->start = false;
 
-    rstate->sq_lock = SDL_CreateMutex();
-    if(!rstate->sq_lock)
-        goto fail_sq_lock;
+  rstate->sq_lock = SDL_CreateMutex();
+  if (!rstate->sq_lock)
+    goto fail_sq_lock;
 
-    rstate->sq_cond = SDL_CreateCond();
-    if(!rstate->sq_cond)
-        goto fail_sq_cond;
+  rstate->sq_cond = SDL_CreateCond();
+  if (!rstate->sq_cond)
+    goto fail_sq_cond;
 
-    rstate->done = false;
+  rstate->done = false;
 
-    rstate->done_lock = SDL_CreateMutex();
-    if(!rstate->done_lock)
-        goto fail_done_lock;
+  rstate->done_lock = SDL_CreateMutex();
+  if (!rstate->done_lock)
+    goto fail_done_lock;
 
-    rstate->done_cond = SDL_CreateCond();
-    if(!rstate->done_cond)
-        goto fail_done_cond;
+  rstate->done_cond = SDL_CreateCond();
+  if (!rstate->done_cond)
+    goto fail_done_cond;
 
-    rstate->swap_buffers = false;
-    return true;
+  rstate->swap_buffers = false;
+  return true;
 
 fail_done_cond:
-    SDL_DestroyMutex(rstate->done_lock);
+  SDL_DestroyMutex(rstate->done_lock);
 fail_done_lock:
-    SDL_DestroyCond(rstate->sq_cond);
+  SDL_DestroyCond(rstate->sq_cond);
 fail_sq_cond:
-    SDL_DestroyMutex(rstate->sq_lock);
+  SDL_DestroyMutex(rstate->sq_lock);
 fail_sq_lock:
-    return false;
+  return false;
 }
 
-static void rstate_destroy(struct render_sync_state *rstate)
-{
-    SDL_DestroyCond(rstate->done_cond);
-    SDL_DestroyMutex(rstate->done_lock);
-    SDL_DestroyCond(rstate->sq_cond);
-    SDL_DestroyMutex(rstate->sq_lock);
+static void rstate_destroy(struct render_sync_state *rstate) {
+  SDL_DestroyCond(rstate->done_cond);
+  SDL_DestroyMutex(rstate->done_lock);
+  SDL_DestroyCond(rstate->sq_cond);
+  SDL_DestroyMutex(rstate->sq_lock);
 }
 
-static int render_thread_quit(void)
-{
-    SDL_LockMutex(s_rstate.sq_lock);
-    s_rstate.quit = true;
-    SDL_CondSignal(s_rstate.sq_cond);
-    SDL_UnlockMutex(s_rstate.sq_lock);
+static int render_thread_quit(void) {
+  SDL_LockMutex(s_rstate.sq_lock);
+  s_rstate.quit = true;
+  SDL_CondSignal(s_rstate.sq_cond);
+  SDL_UnlockMutex(s_rstate.sq_lock);
 
-    int ret;
-    SDL_WaitThread(s_render_thread, &ret);
-    return ret;
+  int ret;
+  SDL_WaitThread(s_render_thread, &ret);
+  return ret;
 }
 
-static void render_thread_start_work(void)
-{
-    SDL_LockMutex(s_rstate.done_lock);
-    s_rstate.done = false;
-    SDL_UnlockMutex(s_rstate.done_lock);
+static void render_thread_start_work(void) {
+  SDL_LockMutex(s_rstate.done_lock);
+  s_rstate.done = false;
+  SDL_UnlockMutex(s_rstate.done_lock);
 
-    SDL_LockMutex(s_rstate.sq_lock);
-    s_rstate.start = true;
-    SDL_CondSignal(s_rstate.sq_cond);
-    SDL_UnlockMutex(s_rstate.sq_lock);
+  SDL_LockMutex(s_rstate.sq_lock);
+  s_rstate.start = true;
+  SDL_CondSignal(s_rstate.sq_cond);
+  SDL_UnlockMutex(s_rstate.sq_lock);
 }
 
-void render_thread_wait_done(void)
-{
-    PERF_ENTER();
+void render_thread_wait_done(void) {
+  PERF_ENTER();
 
-    SDL_LockMutex(s_rstate.done_lock);
-    while(!s_rstate.done)
-        SDL_CondWait(s_rstate.done_cond, s_rstate.done_lock);
-    s_rstate.done = false;
-    SDL_UnlockMutex(s_rstate.done_lock);
+  SDL_LockMutex(s_rstate.done_lock);
+  while (!s_rstate.done)
+    SDL_CondWait(s_rstate.done_cond, s_rstate.done_lock);
+  s_rstate.done = false;
+  SDL_UnlockMutex(s_rstate.done_lock);
 
-    PERF_RETURN_VOID();
+  PERF_RETURN_VOID();
 }
 
-static void render_maybe_enable(void)
-{
-    /* Simulate a single frame after a session change without rendering
-     * it - this gives us a chance to handle this event without anyone
-     * noticing. */
-    if(((uint64_t)g_frame_idx) - Session_ChangeTick() <= 1)
-        return;
-    s_rstate.swap_buffers = true;
+static void render_maybe_enable(void) {
+  /* Simulate a single frame after a session change without rendering
+   * it - this gives us a chance to handle this event without anyone
+   * noticing. */
+  if (((uint64_t)g_frame_idx) - Session_ChangeTick() <= 1)
+    return;
+  s_rstate.swap_buffers = true;
 }
 
-static void fs_on_key_press(void *user, void *event)
-{
-    SDL_KeyboardEvent *key = &((SDL_Event*)event)->key;
-    if(key->keysym.scancode != CONFIG_FRAME_STEP_HOTKEY)
-        return;
-    s_step_frame = true;
+static void fs_on_key_press(void *user, void *event) {
+  SDL_KeyboardEvent *key = &((SDL_Event *)event)->key;
+  if (key->keysym.scancode != CONFIG_FRAME_STEP_HOTKEY)
+    return;
+  s_step_frame = true;
 }
 
-static bool frame_step_validate(const struct sval *new_val)
-{
-    return (new_val->type == ST_TYPE_BOOL);
+static bool frame_step_validate(const struct sval *new_val) {
+  return (new_val->type == ST_TYPE_BOOL);
 }
 
-static void frame_step_commit(const struct sval *new_val)
-{
-    if(new_val->as_bool) {
-        E_Global_Register(SDL_KEYDOWN, fs_on_key_press, NULL,
-            G_PAUSED_FULL | G_PAUSED_UI_RUNNING);
-    }else{
-        E_Global_Unregister(SDL_KEYDOWN, fs_on_key_press);
-    }
+static void frame_step_commit(const struct sval *new_val) {
+  if (new_val->as_bool) {
+    E_Global_Register(SDL_KEYDOWN, fs_on_key_press, NULL,
+                      G_PAUSED_FULL | G_PAUSED_UI_RUNNING);
+  } else {
+    E_Global_Unregister(SDL_KEYDOWN, fs_on_key_press);
+  }
 }
 
-static void engine_create_settings(void)
-{
-    ss_e status = Settings_Create((struct setting){
-        .name = "pf.debug.paused_frame_step_enabled",
-        .val = (struct sval) {
-            .type = ST_TYPE_BOOL,
-            .as_bool = false
-        },
-        .prio = 0,
-        .validate = frame_step_validate,
-        .commit = frame_step_commit,
-    });
-    assert(status == SS_OKAY);
+static void engine_create_settings(void) {
+  ss_e status = Settings_Create((struct setting){
+      .name = "tc.debug.paused_frame_step_enabled",
+      .val = (struct sval){.type = ST_TYPE_BOOL, .as_bool = false},
+      .prio = 0,
+      .validate = frame_step_validate,
+      .commit = frame_step_commit,
+  });
+  assert(status == SS_OKAY);
 }
 
-static SDL_Surface *engine_create_loading_screen(void)
-{
-    ASSERT_IN_MAIN_THREAD();
-    SDL_Surface *ret = NULL;
+static SDL_Surface *engine_create_loading_screen(void) {
+  ASSERT_IN_MAIN_THREAD();
+  SDL_Surface *ret = NULL;
 
-    char fullpath[512];
-    pf_snprintf(fullpath, sizeof(fullpath), "%s/%s", g_basepath, CONFIG_LOADING_SCREEN);
+  char fullpath[512];
+  tc_snprintf(fullpath, sizeof(fullpath), "%s/%s", g_basepath,
+              CONFIG_LOADING_SCREEN);
 
-    int width, height, orig_format;
-    unsigned char *image = stbi_load(fullpath, &width, &height,
-        &orig_format, STBI_rgb);
+  int width, height, orig_format;
+  unsigned char *image =
+      stbi_load(fullpath, &width, &height, &orig_format, STBI_rgb);
 
-    if(!image) {
-        fprintf(stderr, "Loading Screen: Failed to load image: %s\n", fullpath);
-        goto fail_load_image;
-    }
+  if (!image) {
+    fprintf(stderr, "Loading Screen: Failed to load image: %s\n", fullpath);
+    goto fail_load_image;
+  }
 
-    ret = SDL_CreateRGBSurfaceWithFormat(0, width, height, 24, SDL_PIXELFORMAT_RGB24);
+  ret = SDL_CreateRGBSurfaceWithFormat(0, width, height, 24,
+                                       SDL_PIXELFORMAT_RGB24);
 
-    if(!ret) {
-        fprintf(stderr, "Loading Screen: Failed to create SDL surface: %s\n", SDL_GetError());
-        goto fail_surface;
-    }
+  if (!ret) {
+    fprintf(stderr, "Loading Screen: Failed to create SDL surface: %s\n",
+            SDL_GetError());
+    goto fail_surface;
+  }
 
-    memcpy(ret->pixels, image, width * height * 3);
+  memcpy(ret->pixels, image, width * height * 3);
 
 fail_surface:
-    stbi_image_free(image);
+  stbi_image_free(image);
 fail_load_image:
-    return ret;
+  return ret;
 }
 
-static void engine_set_icon(void)
-{
-    char iconpath[512];
-    if(!Engine_GetArg("appicon", sizeof(iconpath), iconpath))
-        return;
+static void engine_set_icon(void) {
+  char iconpath[512];
+  if (!Engine_GetArg("appicon", sizeof(iconpath), iconpath))
+    return;
 
-    char fullpath[512];
-    pf_snprintf(fullpath, sizeof(fullpath), "%s/%s", g_basepath, iconpath);
+  char fullpath[512];
+  tc_snprintf(fullpath, sizeof(fullpath), "%s/%s", g_basepath, iconpath);
 
-    int width, height, orig_format;
-    unsigned char *image = stbi_load(fullpath, &width, &height,
-        &orig_format, STBI_rgb_alpha);
+  int width, height, orig_format;
+  unsigned char *image =
+      stbi_load(fullpath, &width, &height, &orig_format, STBI_rgb_alpha);
 
-    if(!image) {
-        fprintf(stderr, "Failed to load client icon image: %s\n", fullpath);
-        return;
-    }
+  if (!image) {
+    fprintf(stderr, "Failed to load client icon image: %s\n", fullpath);
+    return;
+  }
 
-    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-    if(!surface) {
-        fprintf(stderr, "Failed to create surface from client icon image: %s\n", fullpath);
-        goto fail_surface;
-    }
+  SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32,
+                                                        SDL_PIXELFORMAT_RGBA32);
+  if (!surface) {
+    fprintf(stderr, "Failed to create surface from client icon image: %s\n",
+            fullpath);
+    goto fail_surface;
+  }
 
-    memcpy(surface->pixels, image, width * height * 4);
-    SDL_SetWindowIcon(s_window, surface);
-    SDL_FreeSurface(surface);
+  memcpy(surface->pixels, image, width * height * 4);
+  SDL_SetWindowIcon(s_window, surface);
+  SDL_FreeSurface(surface);
 fail_surface:
-    free(image);
+  free(image);
 }
 
-static bool engine_init(void)
-{
-    g_main_thread_id = SDL_ThreadID();
+static bool engine_init(void) {
+  g_main_thread_id = SDL_ThreadID();
 
-    vec_event_init(&s_prev_tick_events);
-    if(!vec_event_resize(&s_prev_tick_events, 8192))
-        return false;
+  vec_event_init(&s_prev_tick_events);
+  if (!vec_event_resize(&s_prev_tick_events, 8192))
+    return false;
 
-    if(!Perf_Init()) {
-        fprintf(stderr, "Failed to initialize performance module.\n");
-        goto fail_perf;
-    }
+  if (!Perf_Init()) {
+    fprintf(stderr, "Failed to initialize performance module.\n");
+    goto fail_perf;
+  }
 
-    /* Initialize 'Settings' before any subsystem to allow all of them
-     * to register settings. */
-    if(Settings_Init() != SS_OKAY) {
-        fprintf(stderr, "Failed to initialize settings module.\n");
-        goto fail_settings;
-    }
+  /* Initialize 'Settings' before any subsystem to allow all of them
+   * to register settings. */
+  if (Settings_Init() != SS_OKAY) {
+    fprintf(stderr, "Failed to initialize settings module.\n");
+    goto fail_settings;
+  }
 
-    ss_e status;
-    if((status = Settings_LoadFromFile()) != SS_OKAY) {
-        fprintf(stderr, "Could not load settings from file: %s [status: %d]\n",
+  ss_e status;
+  if ((status = Settings_LoadFromFile()) != SS_OKAY) {
+    fprintf(stderr, "Could not load settings from file: %s [status: %d]\n",
             Settings_GetFile(), status);
-    }
+  }
 
-    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
-        fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
-        goto fail_sdl;
-    }
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+    fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
+    goto fail_sdl;
+  }
 
-    SDL_DisplayMode dm;
-    SDL_GetDesktopDisplayMode(0, &dm);
+  SDL_DisplayMode dm;
+  SDL_GetDesktopDisplayMode(0, &dm);
 
-    struct sval setting;
-    int res[2] = {dm.w, dm.h};
+  struct sval setting;
+  int res[2] = {dm.w, dm.h};
 
-    if(Settings_Get("pf.video.resolution", &setting) == SS_OKAY) {
-        res[0] = (int)setting.as_vec2.x;
-        res[1] = (int)setting.as_vec2.y;
-    }
+  if (Settings_Get("tc.video.resolution", &setting) == SS_OKAY) {
+    res[0] = (int)setting.as_vec2.x;
+    res[1] = (int)setting.as_vec2.y;
+  }
 
-    enum pf_window_flags wf = PF_WF_BORDERLESS_WIN, extra_flags = 0;
-    if(Settings_Get("pf.video.display_mode", &setting) == SS_OKAY) {
-        wf = setting.as_int;
-    }
-    if(Settings_Get("pf.video.window_always_on_top", &setting) == SS_OKAY) {
-        extra_flags = setting.as_bool ? SDL_WINDOW_ALWAYS_ON_TOP : 0;
-    }
+  enum tc_window_flags wf = TC_WF_BORDERLESS_WIN, extra_flags = 0;
+  if (Settings_Get("tc.video.display_mode", &setting) == SS_OKAY) {
+    wf = setting.as_int;
+  }
+  if (Settings_Get("tc.video.window_always_on_top", &setting) == SS_OKAY) {
+    extra_flags = setting.as_bool ? SDL_WINDOW_ALWAYS_ON_TOP : 0;
+  }
 
-    R_InitAttributes();
+  R_InitAttributes();
 
-    char appname[64] = "Permafrost Engine";
-    Engine_GetArg("appname", sizeof(appname), appname);
-    s_window = SDL_CreateWindow(
-        appname,
-        SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED,
-        res[0],
-        res[1],
-        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | wf | extra_flags);
+  char appname[64] = "Teaclassic Engine";
+  Engine_GetArg("appname", sizeof(appname), appname);
+  s_window = SDL_CreateWindow(
+      appname, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, res[0], res[1],
+      SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | wf | extra_flags);
 
-    s_loading_screen = engine_create_loading_screen();
-    engine_set_icon();
-    stbi_set_flip_vertically_on_load(true);
+  s_loading_screen = engine_create_loading_screen();
+  engine_set_icon();
+  stbi_set_flip_vertically_on_load(true);
 
-    Engine_LoadingScreen();
+  Engine_LoadingScreen();
 
-    if(!rstate_init(&s_rstate)) {
-        fprintf(stderr, "Failed to initialize the render sync state.\n");
-        goto fail_rstate;
-    }
+  if (!rstate_init(&s_rstate)) {
+    fprintf(stderr, "Failed to initialize the render sync state.\n");
+    goto fail_rstate;
+  }
 
-    struct render_init_arg rarg = (struct render_init_arg) {
-        .in_window = s_window,
-        .in_width = res[0],
-        .in_height = res[1],
-    };
+  struct render_init_arg rarg = (struct render_init_arg){
+      .in_window = s_window,
+      .in_width = res[0],
+      .in_height = res[1],
+  };
 
-    s_rstate.arg = &rarg;
-    s_render_thread = R_Run(&s_rstate);
+  s_rstate.arg = &rarg;
+  s_render_thread = R_Run(&s_rstate);
 
-    if(!s_render_thread) {
-        fprintf(stderr, "Failed to start the render thread.\n");
-        goto fail_rthread;
-    }
-    g_render_thread_id = SDL_GetThreadID(s_render_thread);
+  if (!s_render_thread) {
+    fprintf(stderr, "Failed to start the render thread.\n");
+    goto fail_rthread;
+  }
+  g_render_thread_id = SDL_GetThreadID(s_render_thread);
 
-    render_thread_start_work();
-    render_thread_wait_done();
+  render_thread_start_work();
+  render_thread_wait_done();
 
-    if(!rarg.out_success)
-        goto fail_render_init;
+  if (!rarg.out_success)
+    goto fail_render_init;
 
-    Perf_RegisterThread(g_main_thread_id, "main");
-    Perf_RegisterThread(g_render_thread_id, "render");
+  Perf_RegisterThread(g_main_thread_id, "main");
+  Perf_RegisterThread(g_render_thread_id, "render");
 
-    if(!Sched_Init()) {
-        fprintf(stderr, "Failed to initialize scheduling module.\n");
-        goto fail_sched;
-    }
+  if (!Sched_Init()) {
+    fprintf(stderr, "Failed to initialize scheduling module.\n");
+    goto fail_sched;
+  }
 
-    if(!Session_Init()) {
-        fprintf(stderr, "Failed to initialize session module.\n");
-        goto fail_sesh;
-    }
+  if (!Session_Init()) {
+    fprintf(stderr, "Failed to initialize session module.\n");
+    goto fail_sesh;
+  }
 
-    if(!AL_Init()) {
-        fprintf(stderr, "Failed to initialize asset-loading module.\n");
-        goto fail_al;
-    }
+  if (!AL_Init()) {
+    fprintf(stderr, "Failed to initialize asset-loading module.\n");
+    goto fail_al;
+  }
 
-    if(!Cursor_InitDefault(g_basepath)) {
-        fprintf(stderr, "Failed to initialize cursor module\n");
-        goto fail_cursor;
-    }
-    Cursor_SetActive(CURSOR_POINTER);
+  if (!Cursor_InitDefault(g_basepath)) {
+    fprintf(stderr, "Failed to initialize cursor module\n");
+    goto fail_cursor;
+  }
+  Cursor_SetActive(CURSOR_POINTER);
 
-    if(!E_Init()) {
-        fprintf(stderr, "Failed to initialize event subsystem\n");
-        goto fail_event;
-    }
+  if (!E_Init()) {
+    fprintf(stderr, "Failed to initialize event subsystem\n");
+    goto fail_event;
+  }
 
-    if(!Entity_Init()) {
-        fprintf(stderr, "Failed to initialize event subsystem\n");
-        goto fail_entity;
-    }
+  if (!Entity_Init()) {
+    fprintf(stderr, "Failed to initialize event subsystem\n");
+    goto fail_entity;
+  }
 
-    if(!A_Init()) {
-        fprintf(stderr, "Failed to initialize animation subsystem\n");
-        goto fail_anim;
-    }
+  if (!A_Init()) {
+    fprintf(stderr, "Failed to initialize animation subsystem\n");
+    goto fail_anim;
+  }
 
-    if(!G_Init()) {
-        fprintf(stderr, "Failed to initialize game subsystem\n");
-        goto fail_game;
-    }
+  if (!G_Init()) {
+    fprintf(stderr, "Failed to initialize game subsystem\n");
+    goto fail_game;
+  }
 
-    if(!R_Init(g_basepath)) {
-        fprintf(stderr, "Failed to intiaialize rendering subsystem\n");
-        goto fail_render;
-    }
+  if (!R_Init(g_basepath)) {
+    fprintf(stderr, "Failed to intiaialize rendering subsystem\n");
+    goto fail_render;
+  }
 
-    E_Global_Register(SDL_QUIT, on_user_quit, NULL,
-        G_RUNNING | G_PAUSED_UI_RUNNING | G_PAUSED_FULL);
+  E_Global_Register(SDL_QUIT, on_user_quit, NULL,
+                    G_RUNNING | G_PAUSED_UI_RUNNING | G_PAUSED_FULL);
 
-    if(!UI_Init(g_basepath, s_window)) {
-        fprintf(stderr, "Failed to initialize nuklear\n");
-        goto fail_nuklear;
-    }
+  if (!UI_Init(g_basepath, s_window)) {
+    fprintf(stderr, "Failed to initialize nuklear\n");
+    goto fail_nuklear;
+  }
 
-    if(!S_Init(s_argv[0], g_basepath, UI_GetContext())) {
-        fprintf(stderr, "Failed to initialize scripting subsystem\n");
-        goto fail_script;
-    }
+  if (!S_Init(s_argv[0], g_basepath, UI_GetContext())) {
+    fprintf(stderr, "Failed to initialize scripting subsystem\n");
+    goto fail_script;
+  }
 
-    if(!N_Init()) {
-        fprintf(stderr, "Failed to intialize navigation subsystem\n");
-        goto fail_nav;
-    }
+  if (!N_Init()) {
+    fprintf(stderr, "Failed to intialize navigation subsystem\n");
+    goto fail_nav;
+  }
 
-    if(!Audio_Init()) {
-        fprintf(stderr, "Failed to intialize audio subsystem\n");
-        goto fail_audio;
-    }
+  if (!Audio_Init()) {
+    fprintf(stderr, "Failed to intialize audio subsystem\n");
+    goto fail_audio;
+  }
 
-    if(!P_Projectile_Init()) {
-        fprintf(stderr, "Failed to intialize physics subsystem\n");
-        goto fail_phys;
-    }
+  if (!P_Projectile_Init()) {
+    fprintf(stderr, "Failed to intialize physics subsystem\n");
+    goto fail_phys;
+  }
 
-    engine_create_settings();
-    s_rstate.swap_buffers = true;
-    return true;
+  engine_create_settings();
+  s_rstate.swap_buffers = true;
+  return true;
 
 fail_phys:
-    Audio_Shutdown();
+  Audio_Shutdown();
 fail_audio:
-    N_Shutdown();
+  N_Shutdown();
 fail_nav:
-    S_Shutdown();
+  S_Shutdown();
 fail_script:
-    UI_Shutdown();
+  UI_Shutdown();
 fail_nuklear:
-    G_Shutdown();
+  G_Shutdown();
 fail_game:
-    A_Shutdown();
+  A_Shutdown();
 fail_anim:
-    Entity_Shutdown();
+  Entity_Shutdown();
 fail_entity:
-    E_Shutdown();
+  E_Shutdown();
 fail_event:
 fail_render:
-    Cursor_FreeAll();
+  Cursor_FreeAll();
 fail_cursor:
-    AL_Shutdown();
+  AL_Shutdown();
 fail_al:
-    Session_Shutdown();
+  Session_Shutdown();
 fail_sesh:
-    Sched_Shutdown();
+  Sched_Shutdown();
 fail_sched:
 fail_render_init:
-    render_thread_quit();
+  render_thread_quit();
 fail_rthread:
-    rstate_destroy(&s_rstate);
+  rstate_destroy(&s_rstate);
 fail_rstate:
-    if(s_loading_screen) {
-        SDL_FreeSurface(s_loading_screen);
-    }
-    SDL_DestroyWindow(s_window);
-    SDL_Quit();
+  if (s_loading_screen) {
+    SDL_FreeSurface(s_loading_screen);
+  }
+  SDL_DestroyWindow(s_window);
+  SDL_Quit();
 fail_sdl:
-    Settings_Shutdown();
+  Settings_Shutdown();
 fail_settings:
-    Perf_Shutdown();
+  Perf_Shutdown();
 fail_perf:
-    return false;
+  return false;
 }
 
-static void engine_shutdown(void)
-{
-    P_Projectile_Shutdown();
-    Audio_Shutdown();
-    S_Shutdown();
-    UI_Shutdown();
+static void engine_shutdown(void) {
+  P_Projectile_Shutdown();
+  Audio_Shutdown();
+  S_Shutdown();
+  UI_Shutdown();
 
-    /* Execute the last batch of commands that may have been queued by the
-     * shutdown routines.
-     */
-    render_thread_start_work();
-    render_thread_wait_done();
-    render_thread_quit();
+  /* Execute the last batch of commands that may have been queued by the
+   * shutdown routines.
+   */
+  render_thread_start_work();
+  render_thread_wait_done();
+  render_thread_quit();
 
-    /* 'Game' must shut down after 'Scripting'. There are still
-     * references to game entities in the Python interpreter that should get
-     * their destructors called during 'S_Shutdown(), which will invoke the
-     * 'G_' API to remove them from the world.
-     */
-    G_Shutdown();
-    A_Shutdown();
-    Entity_Shutdown();
-    N_Shutdown();
+  /* 'Game' must shut down after 'Scripting'. There are still
+   * references to game entities in the Python interpreter that should get
+   * their destructors called during 'S_Shutdown(), which will invoke the
+   * 'G_' API to remove them from the world.
+   */
+  G_Shutdown();
+  A_Shutdown();
+  Entity_Shutdown();
+  N_Shutdown();
 
-    Cursor_FreeAll();
-    AL_Shutdown();
-    E_Shutdown();
-    Session_Shutdown();
-    Sched_Shutdown();
-    Perf_Shutdown();
+  Cursor_FreeAll();
+  AL_Shutdown();
+  E_Shutdown();
+  Session_Shutdown();
+  Sched_Shutdown();
+  Perf_Shutdown();
 
-    vec_event_destroy(&s_prev_tick_events);
-    rstate_destroy(&s_rstate);
+  vec_event_destroy(&s_prev_tick_events);
+  rstate_destroy(&s_rstate);
 
-    if(s_loading_screen) {
-        SDL_FreeSurface(s_loading_screen);
-    }
-    SDL_DestroyWindow(s_window);
-    SDL_Quit();
+  if (s_loading_screen) {
+    SDL_FreeSurface(s_loading_screen);
+  }
+  SDL_DestroyWindow(s_window);
+  SDL_Quit();
 
-    Settings_Shutdown();
+  Settings_Shutdown();
 }
 
 /*****************************************************************************/
@@ -556,210 +537,206 @@ static void engine_shutdown(void)
 /* Fills the framebuffer with the loading screen using SDL's software renderer.
  * Used to set a loading screen immediately, even before the rendering subsystem
  * is initialized, */
-void Engine_LoadingScreen(void)
-{
-    ASSERT_IN_MAIN_THREAD();
-    assert(s_window);
+void Engine_LoadingScreen(void) {
+  ASSERT_IN_MAIN_THREAD();
+  assert(s_window);
 
-    /* Make sure the render therad doesn't overwrite the screen... */
-    if(g_render_thread_id) {
-        Engine_WaitRenderWorkDone();
-    }
-
-    SDL_Surface *win_surface = SDL_GetWindowSurface(s_window);
-    SDL_Renderer *sw_renderer = SDL_CreateSoftwareRenderer(win_surface);
-    assert(sw_renderer);
-
-    SDL_SetRenderDrawColor(sw_renderer, 0x00, 0x00, 0x00, 0xff);
-    SDL_RenderClear(sw_renderer);
-
-    SDL_Texture *tex;
-    if(s_loading_screen && (tex = SDL_CreateTextureFromSurface(sw_renderer, s_loading_screen))) {
-        SDL_RenderCopy(sw_renderer, tex, NULL, NULL);
-        SDL_DestroyTexture(tex);
-    }
-
-    SDL_UpdateWindowSurface(s_window);
-    SDL_DestroyRenderer(sw_renderer);
-}
-
-int Engine_SetRes(int w, int h)
-{
-    SDL_DisplayMode dm = (SDL_DisplayMode) {
-        .format = SDL_PIXELFORMAT_UNKNOWN,
-        .w = w,
-        .h = h,
-        .refresh_rate = 0, /* Unspecified */
-        .driverdata = NULL,
-    };
-
-    SDL_SetWindowSize(s_window, w, h);
-    SDL_SetWindowPosition(s_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-    return SDL_SetWindowDisplayMode(s_window, &dm);
-}
-
-void Engine_SetDispMode(enum pf_window_flags wf)
-{
-    SDL_SetWindowFullscreen(s_window, wf & SDL_WINDOW_FULLSCREEN);
-    SDL_SetWindowBordered(s_window, !(wf & (SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN)));
-    SDL_SetWindowPosition(s_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-}
-
-void Engine_WinDrawableSize(int *out_w, int *out_h)
-{
-    SDL_GL_GetDrawableSize(s_window, out_w, out_h);
-}
-
-void Engine_FlushRenderWorkQueue(void)
-{
-    ASSERT_IN_MAIN_THREAD();
-
-    /* Wait for the render thread to finish its' current batch */
-    render_thread_start_work();
-    render_thread_wait_done();
-    G_SwapBuffers();
-
-    /* Submit and run the queued batch to completion */
-    render_thread_start_work();
-    render_thread_wait_done();
-    G_SwapBuffers();
-
-    /* Kick off the empty batch such that we're in the same state that we started in */
-    render_thread_start_work();
-}
-
-void Engine_EnableRendering(bool on)
-{
+  /* Make sure the render therad doesn't overwrite the screen... */
+  if (g_render_thread_id) {
     Engine_WaitRenderWorkDone();
-    s_rstate.swap_buffers = on;
+  }
+
+  SDL_Surface *win_surface = SDL_GetWindowSurface(s_window);
+  SDL_Renderer *sw_renderer = SDL_CreateSoftwareRenderer(win_surface);
+  assert(sw_renderer);
+
+  SDL_SetRenderDrawColor(sw_renderer, 0x00, 0x00, 0x00, 0xff);
+  SDL_RenderClear(sw_renderer);
+
+  SDL_Texture *tex;
+  if (s_loading_screen &&
+      (tex = SDL_CreateTextureFromSurface(sw_renderer, s_loading_screen))) {
+    SDL_RenderCopy(sw_renderer, tex, NULL, NULL);
+    SDL_DestroyTexture(tex);
+  }
+
+  SDL_UpdateWindowSurface(s_window);
+  SDL_DestroyRenderer(sw_renderer);
 }
 
-void Engine_WaitRenderWorkDone(void)
-{
-    PERF_ENTER();
-    if(s_quit) {
-        PERF_RETURN_VOID();
-    }
+int Engine_SetRes(int w, int h) {
+  SDL_DisplayMode dm = (SDL_DisplayMode){
+      .format = SDL_PIXELFORMAT_UNKNOWN,
+      .w = w,
+      .h = h,
+      .refresh_rate = 0, /* Unspecified */
+      .driverdata = NULL,
+  };
 
-    /* Wait for the render thread to finish, but don't yet clear/ack the 'done' flag */
-    SDL_LockMutex(s_rstate.done_lock);
-    while(!s_rstate.done) {
-        SDL_CondWait(s_rstate.done_cond, s_rstate.done_lock);
-    }
-    SDL_UnlockMutex(s_rstate.done_lock);
+  SDL_SetWindowSize(s_window, w, h);
+  SDL_SetWindowPosition(s_window, SDL_WINDOWPOS_CENTERED,
+                        SDL_WINDOWPOS_CENTERED);
+  return SDL_SetWindowDisplayMode(s_window, &dm);
+}
 
+void Engine_SetDispMode(enum tc_window_flags wf) {
+  SDL_SetWindowFullscreen(s_window, wf & SDL_WINDOW_FULLSCREEN);
+  SDL_SetWindowBordered(
+      s_window, !(wf & (SDL_WINDOW_BORDERLESS | SDL_WINDOW_FULLSCREEN)));
+  SDL_SetWindowPosition(s_window, SDL_WINDOWPOS_CENTERED,
+                        SDL_WINDOWPOS_CENTERED);
+}
+
+void Engine_WinDrawableSize(int *out_w, int *out_h) {
+  SDL_GL_GetDrawableSize(s_window, out_w, out_h);
+}
+
+void Engine_FlushRenderWorkQueue(void) {
+  ASSERT_IN_MAIN_THREAD();
+
+  /* Wait for the render thread to finish its' current batch */
+  render_thread_start_work();
+  render_thread_wait_done();
+  G_SwapBuffers();
+
+  /* Submit and run the queued batch to completion */
+  render_thread_start_work();
+  render_thread_wait_done();
+  G_SwapBuffers();
+
+  /* Kick off the empty batch such that we're in the same state that we started
+   * in */
+  render_thread_start_work();
+}
+
+void Engine_EnableRendering(bool on) {
+  Engine_WaitRenderWorkDone();
+  s_rstate.swap_buffers = on;
+}
+
+void Engine_WaitRenderWorkDone(void) {
+  PERF_ENTER();
+  if (s_quit) {
     PERF_RETURN_VOID();
+  }
+
+  /* Wait for the render thread to finish, but don't yet clear/ack the 'done'
+   * flag */
+  SDL_LockMutex(s_rstate.done_lock);
+  while (!s_rstate.done) {
+    SDL_CondWait(s_rstate.done_cond, s_rstate.done_lock);
+  }
+  SDL_UnlockMutex(s_rstate.done_lock);
+
+  PERF_RETURN_VOID();
 }
 
-void Engine_ClearPendingEvents(void)
-{
-    SDL_FlushEvents(0, SDL_LASTEVENT);
-    E_ClearPendingEvents();
+void Engine_ClearPendingEvents(void) {
+  SDL_FlushEvents(0, SDL_LASTEVENT);
+  E_ClearPendingEvents();
 }
 
-bool Engine_GetArg(const char *name, size_t maxout, char out[static maxout])
-{
-    size_t namelen = strlen(name);
-    for(int i = 2; i < s_argc; i++) {
-        const char *curr = s_argv[i];
-        if(strstr(curr, "--") != curr)
-            continue;
-        curr += 2;
-        if(0 != strncmp(curr, name, namelen))
-            continue;
-        curr += namelen;
-        if(*curr != '=')
-            continue;
-        pf_strlcpy(out, curr + 1, maxout);
-        return true;
-    }
-    return false;
+bool Engine_GetArg(const char *name, size_t maxout, char out[static maxout]) {
+  size_t namelen = strlen(name);
+  for (int i = 2; i < s_argc; i++) {
+    const char *curr = s_argv[i];
+    if (strstr(curr, "--") != curr)
+      continue;
+    curr += 2;
+    if (0 != strncmp(curr, name, namelen))
+      continue;
+    curr += namelen;
+    if (*curr != '=')
+      continue;
+    tc_strlcpy(out, curr + 1, maxout);
+    return true;
+  }
+  return false;
 }
 
 #if defined(_WIN32)
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-                     LPSTR lpCmdLine, int nCmdShow)
-{
-    int argc = __argc;
-    char **argv = __argv;
+                     LPSTR lpCmdLine, int nCmdShow) {
+  int argc = __argc;
+  char **argv = __argv;
 
 #else
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 #endif
 
-    int ret = EXIT_SUCCESS;
+  int ret = EXIT_SUCCESS;
 
-    if(argc < 3) {
-        printf("Usage: %s [base directory path (containing 'assets', 'shaders' and 'scripts' folders)] [script path]\n", argv[0]);
-        ret = EXIT_FAILURE;
-        goto fail_args;
+  if (argc < 3) {
+    printf("Usage: %s [base directory path (containing 'assets', 'shaders' and "
+           "'scripts' folders)] [script path]\n",
+           argv[0]);
+    ret = EXIT_FAILURE;
+    goto fail_args;
+  }
+
+  g_basepath = argv[1];
+  s_argc = argc;
+  s_argv = argv;
+
+  if (!engine_init()) {
+    ret = EXIT_FAILURE;
+    goto fail_init;
+  }
+
+  Audio_PlayMusicFirst();
+  S_RunFile(argv[2], 0, NULL);
+
+  /* Run the first frame of the simulation, and prepare the buffers for
+   * rendering. */
+  E_ServiceQueue();
+  G_Update();
+  G_Render();
+  G_SwapBuffers();
+  Perf_FinishTick();
+
+  while (!s_quit) {
+
+    Perf_BeginTick();
+    enum simstate curr_ss = G_GetSimState();
+    bool prev_step_frame = s_step_frame;
+
+    if (prev_step_frame) {
+      assert(curr_ss != G_RUNNING);
+      G_SetSimState(G_RUNNING);
     }
 
-    g_basepath = argv[1];
-    s_argc = argc;
-    s_argv = argv;
+    render_maybe_enable();
+    render_thread_start_work();
+    Sched_StartBackgroundTasks();
 
-    if(!engine_init()) {
-        ret = EXIT_FAILURE;
-        goto fail_init;
-    }
-
-    Audio_PlayMusicFirst();
-    S_RunFile(argv[2], 0, NULL);
-
-    /* Run the first frame of the simulation, and prepare the buffers for rendering. */
+    process_sdl_events();
     E_ServiceQueue();
+    Session_ServiceRequests();
     G_Update();
     G_Render();
+    Sched_Tick();
+
+    render_thread_wait_done();
+
     G_SwapBuffers();
     Perf_FinishTick();
 
-    while(!s_quit) {
-
-        Perf_BeginTick();
-        enum simstate curr_ss = G_GetSimState();
-        bool prev_step_frame = s_step_frame;
-
-        if(prev_step_frame) {
-            assert(curr_ss != G_RUNNING);
-            G_SetSimState(G_RUNNING);
-        }
-
-        render_maybe_enable();
-        render_thread_start_work();
-        Sched_StartBackgroundTasks();
-
-        process_sdl_events();
-        E_ServiceQueue();
-        Session_ServiceRequests();
-        G_Update();
-        G_Render();
-        Sched_Tick();
-
-        render_thread_wait_done();
-
-        G_SwapBuffers();
-        Perf_FinishTick();
-
-        if(prev_step_frame) {
-            G_SetSimState(curr_ss);
-            s_step_frame = false;
-        }
-
-        ++g_frame_idx;
+    if (prev_step_frame) {
+      G_SetSimState(curr_ss);
+      s_step_frame = false;
     }
 
-    ss_e status;
-    if((status = Settings_SaveToFile()) != SS_OKAY) {
-        fprintf(stderr, "Could not save settings to file: %s [status: %d]\n",
+    ++g_frame_idx;
+  }
+
+  ss_e status;
+  if ((status = Settings_SaveToFile()) != SS_OKAY) {
+    fprintf(stderr, "Could not save settings to file: %s [status: %d]\n",
             Settings_GetFile(), status);
-    }
+  }
 
-    engine_shutdown();
+  engine_shutdown();
 fail_init:
 fail_args:
-    exit(ret);
+  exit(ret);
 }
-
-

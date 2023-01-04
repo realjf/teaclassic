@@ -1,5 +1,5 @@
 #ifndef _TC_MALLOC_H_
-#define _TC_MALLOC_H_PF
+#define _TC_MALLOC_H_
 
 #include <stddef.h>
 #include <stdbool.h>
