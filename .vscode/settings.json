@@ -15,6 +15,8 @@
         "gl_texture.h": "c",
         "python.h": "c",
         "sdl_vec_rwops.h": "c",
-        "py_camera.h": "c"
+        "py_camera.h": "c",
+        "stddef.h": "c",
+        "audio.h": "c"
     }
 }

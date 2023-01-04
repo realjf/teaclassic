@@ -54,3 +54,15 @@ dkms.conf
 .history
 build
 bin
+
+*.pyc
+*.pickle
+
+tc.conf
+
+deps/GLEW/auto/EGL-Registry/
+deps/GLEW/auto/OpenGL-Registry/
+deps/GLEW/auto/glfixes/
+deps/GLEW/lib/
+deps/GLEW/tmp/
+deps/SDL2/build/

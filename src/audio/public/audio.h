@@ -12,9 +12,9 @@ struct map;
 struct SDL_RWops;
 
 enum playback_mode {
-    MUSIC_MODE_LOOP,
-    MUSIC_MODE_PLAYLIST,
-    MUSIC_MODE_SHUFFLE,
+  MUSIC_MODE_LOOP,
+  MUSIC_MODE_PLAYLIST,
+  MUSIC_MODE_SHUFFLE,
 };
 
 bool Audio_Init(void);
