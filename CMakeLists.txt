@@ -36,6 +36,7 @@ include_directories(.)
 include_directories(deps/SDL2/include)
 include_directories(deps/openal-soft/include)
 include_directories(deps/Python/Include)
+include_directories(deps/logc/include)
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-volatile")

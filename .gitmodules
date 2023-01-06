@@ -16,3 +16,9 @@
 	update = checkout
 	branch = glew-2.2.0
 	ignore = dirty
+[submodule "deps/logc"]
+	path = deps/logc
+	url = https://github.com/realjf/logc.git
+	update = checkout
+	branch = v0.1.0
+	ignore = dirty

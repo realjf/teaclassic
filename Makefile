@@ -247,7 +247,7 @@ rm_submod:
 	@-git rm -r --cached ${MOD_NAME}
 # 清理.gitmodules!!!
 # 删除目录
-	@-sed -i "\#${MOD_NAME}#,+3d" .gitmodules
+	@-sed -i "\#${MOD_NAME}#,+5d" .gitmodules
 	@-rm -rf .git/modules/${MOD_NAME}
 	@-rm -rf ${MOD_NAME}
 
